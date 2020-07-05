@@ -10,6 +10,9 @@
  * option.h: definition of global variables for settable options
  */
 
+#ifndef _OPTION_H_
+#define _OPTION_H_
+
 //
 // Flags
 //
@@ -400,7 +403,7 @@ EXTERN char_u	*p_bex;		// 'backupext'
 EXTERN char_u	*p_bo;		// 'belloff'
 EXTERN unsigned	bo_flags;
 
-// values for the 'beepon' option
+// values for the 'belloff' option
 #define BO_ALL		0x0001
 #define BO_BS		0x0002
 #define BO_CRSR		0x0004
@@ -1319,3 +1322,5 @@ enum
 
 // Value for b_p_ul indicating the global value must be used.
 #define NO_LOCAL_UNDOLEVEL -123456
+
+#endif // _OPTION_H_

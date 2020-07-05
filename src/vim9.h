@@ -13,7 +13,8 @@
 
 typedef enum {
     ISN_EXEC,	    // execute Ex command line isn_arg.string
-    ISN_ECHO,	    // echo isn_arg.number items on top of stack
+    ISN_ECHO,	    // echo isn_arg.echo.echo_count items on top of stack
+    ISN_EXECUTE,    // execute Ex commands isn_arg.number items on top of stack
 
     // get and set variables
     ISN_LOAD,	    // push local variable isn_arg.number
@@ -28,30 +29,35 @@ typedef enum {
     ISN_STORE,	    // pop into local variable isn_arg.number
     ISN_STOREV,	    // pop into v: variable isn_arg.number
     ISN_STOREG,	    // pop into global variable isn_arg.string
-    ISN_STORES,	    // pop into scirpt variable isn_arg.loadstore
-    ISN_STORESCRIPT, // pop into scirpt variable isn_arg.script
+    ISN_STORES,	    // pop into script variable isn_arg.loadstore
+    ISN_STORESCRIPT, // pop into script variable isn_arg.script
     ISN_STOREOPT,   // pop into option isn_arg.string
     ISN_STOREENV,    // pop into environment variable isn_arg.string
     ISN_STOREREG,    // pop into register isn_arg.number
     // ISN_STOREOTHER, // pop into other script variable isn_arg.other.
 
-    ISN_STORENR,    // store number into local variable isn_arg.storenr.str_idx
+    ISN_STORENR,    // store number into local variable isn_arg.storenr.stnr_idx
 
     // constants
-    ISN_PUSHNR,	    // push number isn_arg.number
-    ISN_PUSHBOOL,   // push bool value isn_arg.number
-    ISN_PUSHSPEC,   // push special value isn_arg.number
-    ISN_PUSHF,	    // push float isn_arg.fnumber
-    ISN_PUSHS,	    // push string isn_arg.string
-    ISN_PUSHBLOB,   // push blob isn_arg.blob
-    ISN_NEWLIST,    // push list from stack items, size is isn_arg.number
-    ISN_NEWDICT,    // push dict from stack items, size is isn_arg.number
+    ISN_PUSHNR,		// push number isn_arg.number
+    ISN_PUSHBOOL,	// push bool value isn_arg.number
+    ISN_PUSHSPEC,	// push special value isn_arg.number
+    ISN_PUSHF,		// push float isn_arg.fnumber
+    ISN_PUSHS,		// push string isn_arg.string
+    ISN_PUSHBLOB,	// push blob isn_arg.blob
+    ISN_PUSHFUNC,	// push func isn_arg.string
+    ISN_PUSHPARTIAL,	// push partial ?
+    ISN_PUSHCHANNEL,	// push channel isn_arg.channel
+    ISN_PUSHJOB,	// push channel isn_arg.job
+    ISN_NEWLIST,	// push list from stack items, size is isn_arg.number
+    ISN_NEWDICT,	// push dict from stack items, size is isn_arg.number
 
     // function call
     ISN_BCALL,	    // call builtin function isn_arg.bfunc
     ISN_DCALL,	    // call def function isn_arg.dfunc
     ISN_UCALL,	    // call user function or funcref/partial isn_arg.ufunc
     ISN_PCALL,	    // call partial, use isn_arg.pfunc
+    ISN_PCALL_END,  // cleanup after ISN_PCALL with cpf_top set
     ISN_RETURN,	    // return, result is on top of stack
     ISN_FUNCREF,    // push a function ref to dfunc isn_arg.number
 
@@ -173,8 +179,8 @@ typedef struct {
 
 // arguments to ISN_STORENR
 typedef struct {
-    int		str_idx;
-    varnumber_T	str_val;
+    int		stnr_idx;
+    varnumber_T	stnr_val;
 } storenr_T;
 
 // arguments to ISN_STOREOPT
@@ -185,7 +191,7 @@ typedef struct {
 
 // arguments to ISN_LOADS and ISN_STORES
 typedef struct {
-    char_u	*ls_name;	// variable name
+    char_u	*ls_name;	// variable name (with s: for ISN_STORES)
     int		ls_sid;		// script ID
 } loadstore_T;
 
@@ -198,7 +204,7 @@ typedef struct {
 /*
  * Instruction
  */
-typedef struct {
+struct isn_S {
     isntype_T	isn_type;
     int		isn_lnum;
     union {
@@ -208,6 +214,9 @@ typedef struct {
 #ifdef FEAT_FLOAT
 	float_T		    fnumber;
 #endif
+	channel_T	    *channel;
+	job_T		    *job;
+	partial_T	    *partial;
 	jump_T		    jump;
 	forloop_T	    forloop;
 	try_T		    try;
@@ -223,7 +232,7 @@ typedef struct {
 	loadstore_T	    loadstore;
 	script_T	    script;
     } isn_arg;
-} isn_T;
+};
 
 /*
  * Info about a function defined with :def.  Used in "def_functions".

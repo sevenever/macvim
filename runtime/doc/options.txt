@@ -1,4 +1,4 @@
-*options.txt*	For Vim version 8.2.  Last change: 2020 Feb 14
+*options.txt*	For Vim version 8.2.  Last change: 2020 Mar 02
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -3878,7 +3878,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 		'guitablabel' can be used to change the text in the labels.
 		When 'e' is missing a non-GUI tab pages line may be used.
 		The GUI tabs are only supported on some systems, currently
-		GTK, Motif, Mac OS/X and MS-Windows.
+		GTK, Motif, Mac OS/X, Haiku, and MS-Windows.
 								*'go-f'*
 	  'f'	Foreground: Don't use fork() to detach the GUI from the shell
 		where it was started.  Use this for programs that wait for the
@@ -4757,8 +4757,8 @@ A jump table for the options with a short description can be found at |Q_op|.
 	be able to execute Normal mode commands.
 	This is the opposite of the 'keymap' option, where characters are
 	mapped in Insert mode.
-	Also consider resetting 'langremap' to avoid 'langmap' applies to
-	characters resulting from a mapping.
+	Also consider setting 'langremap' to off, to prevent 'langmap' from
+	applying to characters resulting from a mapping.
 	This option cannot be set from a |modeline| or in the |sandbox|, for
 	security reasons.
 
@@ -4823,7 +4823,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 	'langnoremap' is set to the inverted value, and the other way around.
 
 			*'langremap'* *'lrm'* *'nolangremap'* *'nolrm'*
-'langremap' 'lrm'	boolean (default on, reset in |defaults.vim|)
+'langremap' 'lrm'	boolean (default on, set to off in |defaults.vim|)
 			global
 			{only available when compiled with the |+langmap|
 			feature}
@@ -6356,6 +6356,11 @@ A jump table for the options with a short description can be found at |Q_op|.
 					Macintosh (pre-OS X): "$VIM:vimfiles,
 						$VIMRUNTIME,
 						$VIM:vimfiles:after"
+					Haiku: "$BE_USER_SETTINGS/vim,
+						$VIM/vimfiles,
+						$VIMRUNTIME,
+						$VIM/vimfiles/after,
+						$BE_USER_SETTINGS/vim/after")
 					VMS: "sys$login:vimfiles,
 						$VIM/vimfiles,
 						$VIMRUNTIME,
@@ -7814,6 +7819,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 				      in the GUI: "builtin_gui"
 					on Amiga: "amiga"
 					 on BeOS: "beos-ansi"
+					on Haiku: "xterm"
 					  on Mac: "mac-ansi"
 					 on MiNT: "vt52"
 					 on Unix: "ansi"

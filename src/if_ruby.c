@@ -736,19 +736,6 @@ static struct
 };
 
 /*
- * Free ruby.dll
- */
-    static void
-end_dynamic_ruby(void)
-{
-    if (hinstRuby)
-    {
-	close_dll(hinstRuby);
-	hinstRuby = NULL;
-    }
-}
-
-/*
  * Load library and get all pointers.
  * Parameter 'libname' provides name of DLL.
  * Return OK or FAIL.
@@ -797,9 +784,6 @@ ruby_enabled(int verbose)
     void
 ruby_end(void)
 {
-#ifdef DYNAMIC_RUBY
-    end_dynamic_ruby();
-#endif
 }
 
     void
@@ -1163,7 +1147,7 @@ vim_to_ruby(typval_T *tv)
 
 	if (list != NULL)
 	{
-	    for (curr = list->lv_first; curr != NULL; curr = curr->li_next)
+	    FOR_ALL_LIST_ITEMS(list, curr)
 		rb_ary_push(result, vim_to_ruby(&curr->li_tv));
 	}
     }

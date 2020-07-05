@@ -117,7 +117,7 @@ find_win_for_curbuf(void)
 {
     wininfo_T *wip;
 
-    for (wip = curbuf->b_wininfo; wip != NULL; wip = wip->wi_next)
+    FOR_ALL_BUF_WININFO(curbuf, wip)
     {
 	if (wip->wi_win != NULL)
 	{
@@ -572,11 +572,11 @@ get_buffer_info(buf_T *buf)
     windows = list_alloc();
     if (windows != NULL)
     {
-	for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+	FOR_ALL_POPUPWINS(wp)
 	    if (wp->w_buffer == buf)
 		list_append_number(windows, (varnumber_T)wp->w_id);
 	FOR_ALL_TABPAGES(tp)
-	    for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+	    FOR_ALL_POPUPWINS_IN_TAB(tp, wp)
 		if (wp->w_buffer == buf)
 		    list_append_number(windows, (varnumber_T)wp->w_id);
 
@@ -750,6 +750,12 @@ f_getbufline(typval_T *argvars, typval_T *rettv)
 	end = tv_get_lnum_buf(&argvars[2], buf);
 
     get_buffer_lines(buf, lnum, end, TRUE, rettv);
+}
+
+    type_T *
+ret_f_getline(int argcount, type_T **argtypes UNUSED)
+{
+    return argcount == 1 ? &t_string : &t_list_string;
 }
 
 /*

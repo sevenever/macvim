@@ -1389,7 +1389,7 @@ set_one_cmd_context(
 		if (*arg != NUL)
 		{
 		    xp->xp_context = EXPAND_NOTHING;
-		    arg = skip_regexp(arg + 1, *arg, p_magic, NULL);
+		    arg = skip_regexp(arg + 1, *arg, p_magic);
 		}
 	    }
 	    return find_nextcmd(arg);
@@ -1427,7 +1427,7 @@ set_one_cmd_context(
 	    {
 		// skip "from" part
 		++arg;
-		arg = skip_regexp(arg, delim, p_magic, NULL);
+		arg = skip_regexp(arg, delim, p_magic);
 	    }
 	    // skip "to" part
 	    while (arg[0] != NUL && arg[0] != delim)
@@ -1550,6 +1550,7 @@ set_one_cmd_context(
 
 	case CMD_function:
 	case CMD_delfunction:
+	case CMD_disassemble:
 	    xp->xp_context = EXPAND_USER_FUNC;
 	    xp->xp_pattern = arg;
 	    break;
@@ -1987,6 +1988,7 @@ ExpandFromContext(
     regmatch_T	regmatch;
     int		ret;
     int		flags;
+    char_u	*tofree = NULL;
 
     flags = EW_DIR;	// include directories
     if (options & WILD_LIST_NOTFOUND)
@@ -2124,6 +2126,17 @@ ExpandFromContext(
     if (xp->xp_context == EXPAND_PACKADD)
 	return ExpandPackAddDir(pat, num_file, file);
 
+    // When expanding a function name starting with s:, match the <SNR>nr_
+    // prefix.
+    if (xp->xp_context == EXPAND_USER_FUNC && STRNCMP(pat, "^s:", 3) == 0)
+    {
+	int len = (int)STRLEN(pat) + 20;
+
+	tofree = alloc(len);
+	vim_snprintf((char *)tofree, len, "^<SNR>\\d\\+_%s", pat + 3);
+	pat = tofree;
+    }
+
     regmatch.regprog = vim_regcomp(pat, p_magic ? RE_MAGIC : 0);
     if (regmatch.regprog == NULL)
 	return FAIL;
@@ -2216,6 +2229,7 @@ ExpandFromContext(
     }
 
     vim_regfree(regmatch.regprog);
+    vim_free(tofree);
 
     return ret;
 }
@@ -2585,7 +2599,7 @@ ExpandUserList(
 
     ga_init2(&ga, (int)sizeof(char *), 3);
     // Loop over the items in the list.
-    for (li = retlist->lv_first; li != NULL; li = li->li_next)
+    FOR_ALL_LIST_ITEMS(retlist, li)
     {
 	if (li->li_tv.v_type != VAR_STRING || li->li_tv.vval.v_string == NULL)
 	    continue;  // Skip non-string items and empty strings

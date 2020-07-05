@@ -1352,6 +1352,18 @@ do_cmdline(
 	restore_dbg_stuff(&debug_saved);
 
     msg_list = saved_msg_list;
+
+    // Cleanup if "cs_emsg_silent_list" remains.
+    if (cstack.cs_emsg_silent_list != NULL)
+    {
+	eslist_T *elem, *temp;
+
+	for (elem = cstack.cs_emsg_silent_list; elem != NULL; elem = temp)
+	{
+	    temp = elem->next;
+	    vim_free(elem);
+	}
+    }
 #endif // FEAT_EVAL
 
     /*
@@ -2363,6 +2375,7 @@ do_one_cmd(
 	    case CMD_finally:
 	    case CMD_endtry:
 	    case CMD_function:
+	    case CMD_def:
 				break;
 
 	    // Commands that handle '|' themselves.  Check: A command should
@@ -3656,7 +3669,7 @@ get_address(
 		}
 		if (skip)	// skip "/pat/"
 		{
-		    cmd = skip_regexp(cmd, c, (int)p_magic, NULL);
+		    cmd = skip_regexp(cmd, c, (int)p_magic);
 		    if (*cmd == c)
 			++cmd;
 		}
@@ -6116,7 +6129,7 @@ ex_open(exarg_T *eap)
     {
 	// ":open /pattern/": put cursor in column found with pattern
 	++eap->arg;
-	p = skip_regexp(eap->arg, '/', p_magic, NULL);
+	p = skip_regexp(eap->arg, '/', p_magic);
 	*p = NUL;
 	regmatch.regprog = vim_regcomp(eap->arg, p_magic ? RE_MAGIC : 0);
 	if (regmatch.regprog != NULL)
@@ -7860,7 +7873,7 @@ ex_findpat(exarg_T *eap)
     {
 	whole = FALSE;
 	++eap->arg;
-	p = skip_regexp(eap->arg, '/', p_magic, NULL);
+	p = skip_regexp(eap->arg, '/', p_magic);
 	if (*p)
 	{
 	    *p++ = NUL;
@@ -7900,6 +7913,9 @@ ex_ptag(exarg_T *eap)
 ex_pedit(exarg_T *eap)
 {
     win_T	*curwin_save = curwin;
+
+    if (ERROR_IF_ANY_POPUP_WINDOW)
+	return;
 
     // Open the preview window or popup and make it the current window.
     g_do_tagpreview = p_pvh;

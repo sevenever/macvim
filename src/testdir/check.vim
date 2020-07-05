@@ -6,6 +6,9 @@ command -nargs=1 MissingFeature throw 'Skipped: ' .. <args> .. ' feature missing
 " Command to check for the presence of a feature.
 command -nargs=1 CheckFeature call CheckFeature(<f-args>)
 func CheckFeature(name)
+  if !has(a:name, 1)
+    throw 'Checking for non-existent feature ' .. a:name
+  endif
   if !has(a:name)
     MissingFeature a:name
   endif
@@ -14,14 +17,20 @@ endfunc
 " Command to check for the presence of a working option.
 command -nargs=1 CheckOption call CheckOption(<f-args>)
 func CheckOption(name)
+  if !exists('&' .. a:name)
+    throw 'Checking for non-existent option ' .. a:name
+  endif
   if !exists('+' .. a:name)
     throw 'Skipped: ' .. a:name .. ' option not supported'
   endif
 endfunc
 
-" Command to check for the presence of a function.
+" Command to check for the presence of a built-in function.
 command -nargs=1 CheckFunction call CheckFunction(<f-args>)
 func CheckFunction(name)
+  if !exists('?' .. a:name)
+    throw 'Checking for non-existent function ' .. a:name
+  endif
   if !exists('*' .. a:name)
     throw 'Skipped: ' .. a:name .. ' function missing'
   endif
@@ -124,3 +133,13 @@ func CheckNotRoot()
     throw 'Skipped: cannot run test as root'
   endif
 endfunc
+
+" Command to check that the current language is English
+command CheckEnglish call CheckEnglish()
+func CheckEnglish()
+  if v:lang != "C" && v:lang !~ '^[Ee]n'
+      throw 'Skipped: only works in English language environment'
+  endif
+endfunc
+
+" vim: shiftwidth=2 sts=2 expandtab

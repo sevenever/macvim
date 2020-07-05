@@ -210,6 +210,8 @@ func Test_digraphs()
   call Put_Dig("00")
   call Put_Dig("el")
   call assert_equal(['␀', 'ü', '∞', 'l'], getline(line('.')-3,line('.')))
+  call assert_fails('exe "digraph a\<Esc> 100"', 'E104:')
+  call assert_fails('exe "digraph \<Esc>a 100"', 'E104:')
   bw!
 endfunc
 
@@ -451,10 +453,12 @@ endfunc
 
 func Test_digraph_cmndline()
   " Create digraph on commandline
-  " This is a hack, to let Vim create the digraph in commandline mode
-  let s = ''
-  exe "sil! norm! :let s.='\<c-k>Eu'\<cr>"
-  call assert_equal("€", s)
+  call feedkeys(":\"\<c-k>Eu\<cr>", 'xt')
+  call assert_equal('"€', @:)
+
+  " Canceling a CTRL-K on the cmdline
+  call feedkeys(":\"a\<c-k>\<esc>b\<cr>", 'xt')
+  call assert_equal('"ab', @:)
 endfunc
 
 func Test_show_digraph()
@@ -471,6 +475,17 @@ func Test_show_digraph_cp1251()
   call assert_equal("\n<\xfa>  <|z>  <M-z>  250,  Hex fa,  Oct 372, Digr ='", execute('ascii'))
   set encoding=utf-8
   bwipe!
+endfunc
+
+" Test for error in a keymap file
+func Test_loadkeymap_error()
+  if !has('keymap')
+    return
+  endif
+  call assert_fails('loadkeymap', 'E105:')
+  call writefile(['loadkeymap', 'a'], 'Xkeymap')
+  call assert_fails('source Xkeymap', 'E791:')
+  call delete('Xkeymap')
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

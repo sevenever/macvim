@@ -1,5 +1,7 @@
 " Test the :disassemble command, and compilation as a side effect
 
+source check.vim
+
 func NotCompiled()
   echo "not"
 endfunc
@@ -85,8 +87,10 @@ enddef
 def Test_disassemble_store()
   let res = execute('disass s:ScriptFuncStore')
   assert_match('<SNR>\d*_ScriptFuncStore.*'
+        \ .. 'let localnr = 1.*'
         \ .. 'localnr = 2.*'
         \ .. ' STORE 2 in $0.*'
+        \ .. 'let localstr = ''abc''.*'
         \ .. 'localstr = ''xyz''.*'
         \ .. ' STORE $1.*'
         \ .. 'v:char = ''abc''.*'
@@ -222,6 +226,63 @@ def Test_disassemble_call()
 enddef
 
 
+def EchoArg(arg: string): string
+  return arg
+enddef
+def RefThis(): func
+  return function('EchoArg')
+enddef
+def s:ScriptPCall()
+  RefThis()("text")
+enddef
+
+def Test_disassemble_pcall()
+  let res = execute('disass s:ScriptPCall')
+  assert_match('<SNR>\d\+_ScriptPCall.*'
+        \ .. 'RefThis()("text").*'
+        \ .. '\d DCALL RefThis(argc 0).*'
+        \ .. '\d PUSHS "text".*'
+        \ .. '\d PCALL top (argc 1).*'
+        \ .. '\d PCALL end.*'
+        \ .. '\d DROP.*'
+        \ .. '\d PUSHNR 0.*'
+        \ .. '\d RETURN.*'
+        \, res)
+enddef
+
+
+def FuncWithForwardCall(): string
+  return DefinedLater("yes")
+enddef
+
+def DefinedLater(arg: string): string
+  return arg
+enddef
+
+def Test_disassemble_update_instr()
+  let res = execute('disass FuncWithForwardCall')
+  assert_match('FuncWithForwardCall.*'
+        \ .. 'return DefinedLater("yes").*'
+        \ .. '\d PUSHS "yes".*'
+        \ .. '\d UCALL DefinedLater(argc 1).*'
+        \ .. '\d CHECKTYPE string stack\[-1].*'
+        \ .. '\d RETURN.*'
+        \, res)
+
+  " Calling the function will change UCALL into the faster DCALL
+  assert_equal('yes', FuncWithForwardCall())
+
+  res = execute('disass FuncWithForwardCall')
+  assert_match('FuncWithForwardCall.*'
+        \ .. 'return DefinedLater("yes").*'
+        \ .. '\d PUSHS "yes".*'
+        \ .. '\d DCALL DefinedLater(argc 1).*'
+        \ .. '\d CHECKTYPE string stack\[-1].*'
+        \ .. '\d RETURN.*'
+        \, res)
+enddef
+
+
 def FuncWithDefault(arg: string = 'default'): string
   return arg
 enddef
@@ -298,6 +359,59 @@ def Test_disassemble_const_expr()
   assert_notmatch('PUSHS "something"', instr)
   assert_notmatch('PUSHS "less"', instr)
   assert_notmatch('JUMP', instr)
+enddef
+
+def WithFunc()
+  let Funky1: func
+  let Funky2: func = function("len")
+  let Party2: func = funcref("UserFunc")
+enddef
+
+def Test_disassemble_function()
+  let instr = execute('disassemble WithFunc')
+  assert_match('WithFunc.*'
+        \ .. 'let Funky1: func.*'
+        \ .. '0 PUSHFUNC "\[none]".*'
+        \ .. '1 STORE $0.*'
+        \ .. 'let Funky2: func = function("len").*'
+        \ .. '2 PUSHS "len".*'
+        \ .. '3 BCALL function(argc 1).*'
+        \ .. '4 STORE $1.*'
+        \ .. 'let Party2: func = funcref("UserFunc").*'
+        \ .. '\d PUSHS "UserFunc".*'
+        \ .. '\d BCALL funcref(argc 1).*'
+        \ .. '\d STORE $2.*'
+        \ .. '\d PUSHNR 0.*'
+        \ .. '\d RETURN.*'
+        \, instr)
+enddef
+
+if has('channel')
+  def WithChannel()
+    let job1: job
+    let job2: job = job_start("donothing")
+    let chan1: channel
+  enddef
+endif
+
+def Test_disassemble_channel()
+  CheckFeature channel
+
+  let instr = execute('disassemble WithChannel')
+  assert_match('WithChannel.*'
+        \ .. 'let job1: job.*'
+        \ .. '\d PUSHJOB "no process".*'
+        \ .. '\d STORE $0.*'
+        \ .. 'let job2: job = job_start("donothing").*'
+        \ .. '\d PUSHS "donothing".*'
+        \ .. '\d BCALL job_start(argc 1).*'
+        \ .. '\d STORE $1.*'
+        \ .. 'let chan1: channel.*'
+        \ .. '\d PUSHCHANNEL 0.*'
+        \ .. '\d STORE $2.*'
+        \ .. '\d PUSHNR 0.*'
+        \ .. '\d RETURN.*'
+        \, instr)
 enddef
 
 def WithLambda(): string
@@ -612,7 +726,6 @@ def Test_disassemble_compare()
         \ ['111 =~ 222', 'COMPARENR =\~'],
         \ ['111 !~ 222', 'COMPARENR !\~'],
         \
-        \ ['"xx" == "yy"', 'COMPARESTRING =='],
         \ ['"xx" != "yy"', 'COMPARESTRING !='],
         \ ['"xx" > "yy"', 'COMPARESTRING >'],
         \ ['"xx" < "yy"', 'COMPARESTRING <'],
@@ -638,10 +751,10 @@ def Test_disassemble_compare()
         \ ['#{a:1} is #{x:2}', 'COMPAREDICT is'],
         \ ['#{a:1} isnot #{x:2}', 'COMPAREDICT isnot'],
         \
-        \ ['{->33} == {->44}', 'COMPAREPARTIAL =='],
-        \ ['{->33} != {->44}', 'COMPAREPARTIAL !='],
-        \ ['{->33} is {->44}', 'COMPAREPARTIAL is'],
-        \ ['{->33} isnot {->44}', 'COMPAREPARTIAL isnot'],
+        \ ['{->33} == {->44}', 'COMPAREFUNC =='],
+        \ ['{->33} != {->44}', 'COMPAREFUNC !='],
+        \ ['{->33} is {->44}', 'COMPAREFUNC is'],
+        \ ['{->33} isnot {->44}', 'COMPAREFUNC isnot'],
         \
         \ ['77 == g:xx', 'COMPAREANY =='],
         \ ['77 != g:xx', 'COMPAREANY !='],
@@ -687,7 +800,115 @@ def Test_disassemble_compare()
     nr += 1
   endfor
 
-  " delete('Xdisassemble')
+  delete('Xdisassemble')
+enddef
+
+def Test_disassemble_compare_const()
+  let cases = [
+        \ ['"xx" == "yy"', false],
+        \ ['"aa" == "aa"', true],
+        \ ['has("eval") ? true : false', true],
+        \ ['has("asdf") ? true : false', false],
+        \ ]
+
+  let nr = 1
+  for case in cases
+    writefile(['def TestCase' .. nr .. '()',
+             \ '  if ' .. case[0],
+             \ '    echo 42'
+             \ '  endif',
+             \ 'enddef'], 'Xdisassemble')
+    source Xdisassemble
+    let instr = execute('disassemble TestCase' .. nr)
+    if case[1]
+      " condition true, "echo 42" executed
+      assert_match('TestCase' .. nr .. '.*'
+          \ .. 'if ' .. substitute(case[0], '[[~]', '\\\0', 'g') .. '.*'
+          \ .. '\d PUSHNR 42.*'
+          \ .. '\d ECHO 1.*'
+          \ .. '\d PUSHNR 0.*'
+          \ .. '\d RETURN.*'
+          \, instr)
+    else
+      " condition false, function just returns
+      assert_match('TestCase' .. nr .. '.*'
+          \ .. 'if ' .. substitute(case[0], '[[~]', '\\\0', 'g') .. '[ \n]*'
+          \ .. 'echo 42[ \n]*'
+          \ .. 'endif[ \n]*'
+          \ .. '\s*\d PUSHNR 0.*'
+          \ .. '\d RETURN.*'
+          \, instr)
+    endif
+
+    nr += 1
+  endfor
+
+  delete('Xdisassemble')
+enddef
+
+def s:Execute()
+  execute 'help vim9.txt'
+  let cmd = 'help vim9.txt'
+  execute cmd
+  let tag = 'vim9.txt'
+  execute 'help ' .. tag
+enddef
+
+def Test_disassemble_execute()
+  let res = execute('disass s:Execute')
+  assert_match('\<SNR>\d*_Execute.*'
+        \ .. "execute 'help vim9.txt'.*"
+        \ .. '\d PUSHS "help vim9.txt".*'
+        \ .. '\d EXECUTE 1.*'
+        \ .. "let cmd = 'help vim9.txt'.*"
+        \ .. '\d PUSHS "help vim9.txt".*'
+        \ .. '\d STORE $0.*'
+        \ .. 'execute cmd.*'
+        \ .. '\d LOAD $0.*'
+        \ .. '\d EXECUTE 1.*'
+        \ .. "let tag = 'vim9.txt'.*"
+        \ .. '\d PUSHS "vim9.txt".*'
+        \ .. '\d STORE $1.*'
+        \ .. "execute 'help ' .. tag.*"
+        \ .. '\d PUSHS "help ".*'
+        \ .. '\d LOAD $1.*'
+        \ .. '\d CONCAT.*'
+        \ .. '\d EXECUTE 1.*'
+        \ .. '\d PUSHNR 0.*'
+        \ .. '\d RETURN'
+        \, res)
+enddef
+
+def SomeStringArg(arg: string)
+  echo arg
+enddef
+
+def SomeAnyArg(arg: any)
+  echo arg
+enddef
+
+def SomeStringArgAndReturn(arg: string): string
+  return arg
+enddef
+
+def Test_display_func()
+  let res1 = execute('function SomeStringArg')
+  assert_match('.* def SomeStringArg(arg: string).*'
+        \ .. '  echo arg.*'
+        \ .. '  enddef'
+        \, res1)
+
+  let res2 = execute('function SomeAnyArg')
+  assert_match('.* def SomeAnyArg(arg: any).*'
+        \ .. '  echo arg.*'
+        \ .. '  enddef'
+        \, res2)
+
+  let res3 = execute('function SomeStringArgAndReturn')
+  assert_match('.* def SomeStringArgAndReturn(arg: string): string.*'
+        \ .. '  return arg.*'
+        \ .. '  enddef'
+        \, res3)
 enddef
 
 " vim: ts=8 sw=2 sts=2 expandtab tw=80 fdm=marker

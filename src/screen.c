@@ -2590,6 +2590,10 @@ retry:
 
     win_new_shellsize();    // fit the windows in the new sized shell
 
+#ifdef FEAT_GUI_HAIKU
+    vim_lock_screen();  // be safe, put it here
+#endif
+
     comp_col();		// recompute columns for shown command and ruler
 
     /*
@@ -2609,11 +2613,11 @@ retry:
 	win_free_lsize(aucmd_win);
 #ifdef FEAT_PROP_POPUP
     // global popup windows
-    for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+    FOR_ALL_POPUPWINS(wp)
 	win_free_lsize(wp);
     // tab-local popup windows
     FOR_ALL_TABPAGES(tp)
-	for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+	FOR_ALL_POPUPWINS_IN_TAB(tp, wp)
 	    win_free_lsize(wp);
 #endif
 
@@ -2651,7 +2655,7 @@ retry:
 	outofmem = TRUE;
 #ifdef FEAT_PROP_POPUP
     // global popup windows
-    for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+    FOR_ALL_POPUPWINS(wp)
 	if (win_alloc_lines(wp) == FAIL)
 	{
 	    outofmem = TRUE;
@@ -2659,7 +2663,7 @@ retry:
 	}
     // tab-local popup windows
     FOR_ALL_TABPAGES(tp)
-	for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+	FOR_ALL_POPUPWINS_IN_TAB(tp, wp)
 	    if (win_alloc_lines(wp) == FAIL)
 	    {
 		outofmem = TRUE;
@@ -2825,11 +2829,10 @@ give_up:
 	    && ScreenLines != NULL
 	    && old_Rows != Rows)
     {
-	(void)gui_redraw_block(0, 0, (int)Rows - 1, (int)Columns - 1, 0);
-	/*
-	 * Adjust the position of the cursor, for when executing an external
-	 * command.
-	 */
+	gui_redraw_block(0, 0, (int)Rows - 1, (int)Columns - 1, 0);
+
+	// Adjust the position of the cursor, for when executing an external
+	// command.
 	if (msg_row >= Rows)		// Rows got smaller
 	    msg_row = Rows - 1;		// put cursor at last row
 	else if (Rows > old_Rows)	// Rows got bigger
@@ -2839,6 +2842,10 @@ give_up:
     }
 #endif
     clear_TabPageIdxs();
+
+#ifdef FEAT_GUI_HAIKU
+    vim_unlock_screen();
+#endif
 
     entered = FALSE;
     --RedrawingDisabled;
@@ -3687,6 +3694,10 @@ screen_ins_lines(
 	clip_scroll_selection(-line_count);
 #endif
 
+#ifdef FEAT_GUI_HAIKU
+    vim_lock_screen();
+#endif
+
 #ifdef FEAT_GUI
     // Don't update the GUI cursor here, ScreenLines[] is invalid until the
     // scrolling is actually carried out.
@@ -3740,6 +3751,10 @@ screen_ins_lines(
 		lineinvalid(temp, (int)Columns);
 	}
     }
+
+#ifdef FEAT_GUI_HAIKU
+    vim_unlock_screen();
+#endif
 
     screen_stop_highlight();
     windgoto(cursor_row, cursor_col);
@@ -3968,6 +3983,10 @@ screen_del_lines(
 		lineinvalid(temp, (int)Columns);
 	}
     }
+
+#ifdef FEAT_GUI_HAIKU
+    vim_unlock_screen();
+#endif
 
     if (screen_attr != clear_attr)
 	screen_stop_highlight();

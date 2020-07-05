@@ -242,6 +242,11 @@ func Test_substitute_errors()
   setl nomodifiable
   call assert_fails('s/foo/bar/', 'E21:')
 
+  call assert_fails("let s=substitute([], 'a', 'A', 'g')", 'E730:')
+  call assert_fails("let s=substitute('abcda', [], 'A', 'g')", 'E730:')
+  call assert_fails("let s=substitute('abcda', 'a', [], 'g')", 'E730:')
+  call assert_fails("let s=substitute('abcda', 'a', 'A', [])", 'E730:')
+
   bwipe!
 endfunc
 
@@ -833,6 +838,10 @@ func Test_sub_with_no_last_pat()
 
   call delete('Xscript')
   call delete('Xresult')
+endfunc
+
+func Test_substitute()
+  call assert_equal('a１a２a３a', substitute('１２３', '\zs', 'a', 'g'))
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

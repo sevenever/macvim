@@ -1536,6 +1536,40 @@ func Test_Cmd_Autocmds()
   enew!
 endfunc
 
+func s:ReadFile()
+  setl noswapfile nomodified
+  let filename = resolve(expand("<afile>:p"))
+  execute 'read' fnameescape(filename)
+  1d_
+  exe 'file' fnameescape(filename)
+  setl buftype=acwrite
+endfunc
+
+func s:WriteFile()
+  let filename = resolve(expand("<afile>:p"))
+  setl buftype=
+  noautocmd execute 'write' fnameescape(filename)
+  setl buftype=acwrite
+  setl nomodified
+endfunc
+
+func Test_BufReadCmd()
+  autocmd BufReadCmd *.test call s:ReadFile()
+  autocmd BufWriteCmd *.test call s:WriteFile()
+
+  call writefile(['one', 'two', 'three'], 'Xcmd.test')
+  edit Xcmd.test
+  call assert_match('Xcmd.test" line 1 of 3', execute('file'))
+  normal! Gofour
+  write
+  call assert_equal(['one', 'two', 'three', 'four'], readfile('Xcmd.test'))
+
+  bwipe!
+  call delete('Xcmd.test')
+  au! BufReadCmd
+  au! BufWriteCmd
+endfunc
+
 func SetChangeMarks(start, end)
   exe a:start. 'mark ['
   exe a:end. 'mark ]'
@@ -1868,6 +1902,8 @@ endfunc
 func Test_Changed_FirstTime()
   CheckFeature terminal
   CheckNotGui
+  " Starting a terminal to run Vim is always considered flaky.
+  let g:test_is_flaky = 1
 
   " Prepare file for TextChanged event.
   call writefile([''], 'Xchanged.txt')
@@ -1965,12 +2001,12 @@ endfunc
 func Test_autocmd_bufreadpre()
   new
   let b:bufreadpre = 1
-  call append(0, range(100))
+  call append(0, range(1000))
   w! XAutocmdBufReadPre.txt
   autocmd BufReadPre <buffer> :let b:bufreadpre += 1
-  norm! 50gg
+  norm! 500gg
   sp
-  norm! 100gg
+  norm! 1000gg
   wincmd p
   let g:wsv1 = winsaveview()
   wincmd p
@@ -2283,7 +2319,7 @@ func Test_autocmd_CmdWinEnter()
   call term_sendkeys(buf, "q:")
   call term_wait(buf)
   call term_sendkeys(buf, ":echo b:dummy_var\<cr>")
-  call WaitForAssert({-> assert_match('^This is a dummy', term_getline(buf, 6))}, 1000)
+  call WaitForAssert({-> assert_match('^This is a dummy', term_getline(buf, 6))}, 2000)
   call term_sendkeys(buf, ":echo &buftype\<cr>")
   call WaitForAssert({-> assert_notmatch('^nofile', term_getline(buf, 6))}, 1000)
   call term_sendkeys(buf, ":echo winnr\<cr>")
@@ -2404,6 +2440,71 @@ func Test_TermChanged()
   au! TermChanged
   let &term = term_save
   bwipe!
+endfunc
+
+" Test for FileReadCmd autocmd
+func Test_autocmd_FileReadCmd()
+  func ReadFileCmd()
+    call append(line('$'), "v:cmdarg = " .. v:cmdarg)
+  endfunc
+  augroup FileReadCmdTest
+    au!
+    au FileReadCmd Xtest call ReadFileCmd()
+  augroup END
+
+  new
+  read ++bin Xtest
+  read ++nobin Xtest
+  read ++edit Xtest
+  read ++bad=keep Xtest
+  read ++bad=drop Xtest
+  read ++bad=- Xtest
+  read ++ff=unix Xtest
+  read ++ff=dos Xtest
+  read ++ff=mac Xtest
+  read ++enc=utf-8 Xtest
+
+  call assert_equal(['',
+        \ 'v:cmdarg =  ++bin',
+        \ 'v:cmdarg =  ++nobin',
+        \ 'v:cmdarg =  ++edit',
+        \ 'v:cmdarg =  ++bad=keep',
+        \ 'v:cmdarg =  ++bad=drop',
+        \ 'v:cmdarg =  ++bad=-',
+        \ 'v:cmdarg =  ++ff=unix',
+        \ 'v:cmdarg =  ++ff=dos',
+        \ 'v:cmdarg =  ++ff=mac',
+        \ 'v:cmdarg =  ++enc=utf-8'], getline(1, '$'))
+
+  close!
+  augroup FileReadCmdTest
+    au!
+  augroup END
+  delfunc ReadFileCmd
+endfunc
+
+" Test for passing invalid arguments to autocmd
+func Test_autocmd_invalid_args()
+  " Additional character after * for event
+  call assert_fails('autocmd *a Xfile set ff=unix', 'E215:')
+  augroup Test
+  augroup END
+  " Invalid autocmd event
+  call assert_fails('autocmd Bufabc Xfile set ft=vim', 'E216:')
+  " Invalid autocmd event in a autocmd group
+  call assert_fails('autocmd Test Bufabc Xfile set ft=vim', 'E216:')
+  augroup! Test
+  " Execute all autocmds
+  call assert_fails('doautocmd * BufEnter', 'E217:')
+  call assert_fails('augroup! x1a2b3', 'E367:')
+  call assert_fails('autocmd BufNew <buffer=999> pwd', 'E680:')
+endfunc
+
+" Test for deep nesting of autocmds
+func Test_autocmd_deep_nesting()
+  autocmd BufEnter Xfile doautocmd BufEnter Xfile
+  call assert_fails('doautocmd BufEnter Xfile', 'E218:')
+  autocmd! BufEnter Xfile
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

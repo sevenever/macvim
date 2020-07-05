@@ -79,6 +79,7 @@ let s:filename_checks = {
     \ 'bib': ['file.bib'],
     \ 'bindzone': ['named.root'],
     \ 'blank': ['file.bl'],
+    \ 'bsdl': ['file.bsdl'],
     \ 'bst': ['file.bst'],
     \ 'bzr': ['bzr_log.any'],
     \ 'c': ['enlightenment/file.cfg', 'file.qc', 'file.c'],
@@ -481,7 +482,7 @@ let s:filename_checks = {
     \ 'verilog': ['file.v'],
     \ 'verilogams': ['file.va', 'file.vams'],
     \ 'vgrindefs': ['vgrindefs'],
-    \ 'vhdl': ['file.hdl', 'file.vhd', 'file.vhdl', 'file.vbe', 'file.vst', 'file.vhdl_123'],
+    \ 'vhdl': ['file.hdl', 'file.vhd', 'file.vhdl', 'file.vbe', 'file.vst', 'file.vhdl_123', 'file.vho'],
     \ 'vim': ['file.vim', 'file.vba', '.exrc', '_exrc'],
     \ 'viminfo': ['.viminfo', '_viminfo'],
     \ 'vmasm': ['file.mar'],
@@ -601,6 +602,7 @@ let s:script_checks = {
       \ 'haskell': [['#!/path/haskell']],
       \ 'cpp': [['// Standard iostream objects -*- C++ -*-'],
       \         ['// -*- C++ -*-']],
+      \ 'yaml': [['%YAML 1.2']],
       \ }
 
 func Test_script_detection()

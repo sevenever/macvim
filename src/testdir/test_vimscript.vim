@@ -1165,6 +1165,8 @@ func Test_type()
     call assert_equal(v:t_none, type(v:none))
     call assert_equal(v:t_none, type(v:null))
 
+    call assert_fails("call type(test_void())", 'E685:')
+    call assert_fails("call type(test_unknown())", 'E685:')
 
     call assert_equal(0, 0 + v:false)
     call assert_equal(1, 0 + v:true)
@@ -1621,6 +1623,9 @@ func Test_delfunction_force()
     endfunc
     delfunc! Xtest
     delfunc! Xtest
+
+    " Try deleting the current function
+    call assert_fails('delfunc Test_delfunction_force', 'E131:')
 endfunc
 
 " Test using bang after user command				    {{{1
@@ -1732,6 +1737,8 @@ func Test_compound_assignment_operators()
       call assert_equal(4.2, x)
       call assert_fails('let x %= 0.5', 'E734')
       call assert_fails('let x .= "f"', 'E734')
+      let x = !3.14
+      call assert_equal(0.0, x)
     endif
 
     " Test for environment variable
@@ -1991,6 +1998,9 @@ func Test_missing_end()
   endtry
   call assert_equal(1, caught_e733)
 
+  " Using endfunc with :if
+  call assert_fails('exe "if 1 | endfunc | endif"', 'E193:')
+
   " Missing 'in' in a :for statement
   call assert_fails('for i range(1) | endfor', 'E690:')
 endfunc
@@ -2037,6 +2047,15 @@ func Test_deep_nest()
       @a
       let @a = ''
     endfunc
+
+    " Deep nesting of function ... endfunction
+    func Test5()
+      let @a = join(repeat(['function X()'], 51), "\n")
+      let @a ..= "\necho v:true\n"
+      let @a ..= join(repeat(['endfunction'], 51), "\n")
+      @a
+      let @a = ''
+    endfunc
   [SCRIPT]
   call writefile(lines, 'Xscript')
 
@@ -2044,19 +2063,30 @@ func Test_deep_nest()
 
   " Deep nesting of if ... endif
   call term_sendkeys(buf, ":call Test1()\n")
+  call term_wait(buf)
   call WaitForAssert({-> assert_match('^E579:', term_getline(buf, 5))})
 
   " Deep nesting of for ... endfor
   call term_sendkeys(buf, ":call Test2()\n")
+  call term_wait(buf)
   call WaitForAssert({-> assert_match('^E585:', term_getline(buf, 5))})
 
   " Deep nesting of while ... endwhile
   call term_sendkeys(buf, ":call Test3()\n")
+  call term_wait(buf)
   call WaitForAssert({-> assert_match('^E585:', term_getline(buf, 5))})
 
   " Deep nesting of try ... endtry
   call term_sendkeys(buf, ":call Test4()\n")
+  call term_wait(buf)
   call WaitForAssert({-> assert_match('^E601:', term_getline(buf, 5))})
+
+  " Deep nesting of function ... endfunction
+  call term_sendkeys(buf, ":call Test5()\n")
+  call term_wait(buf)
+  call WaitForAssert({-> assert_match('^E1058:', term_getline(buf, 4))})
+  call term_sendkeys(buf, "\<C-C>\n")
+  call term_wait(buf)
 
   "let l = ''
   "for i in range(1, 6)
@@ -2076,6 +2106,20 @@ func Test_sfile_in_function()
   endfunc
   call Xfunc()
   delfunc Xfunc
+endfunc
+
+" Test for errors in converting to float from various types         {{{1
+func Test_float_conversion_errors()
+  if has('float')
+    call assert_fails('let x = 4.0 % 2.0', 'E804')
+    call assert_fails('echo 1.1[0]', 'E806')
+    call assert_fails('echo sort([function("min"), 1], "f")', 'E891:')
+    call assert_fails('echo 3.2 == "vim"', 'E892:')
+    call assert_fails('echo sort([[], 1], "f")', 'E893:')
+    call assert_fails('echo sort([{}, 1], "f")', 'E894:')
+    call assert_fails('echo 3.2 == v:true', 'E362:')
+    call assert_fails('echo 3.2 == v:none', 'E907:')
+  endif
 endfunc
 
 "-------------------------------------------------------------------------------

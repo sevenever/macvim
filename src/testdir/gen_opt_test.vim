@@ -73,7 +73,7 @@ let test_values = {
       \ 'buftype': [['', 'help', 'nofile'], ['xxx', 'help,nofile']],
       \ 'casemap': [['', 'internal'], ['xxx']],
       \ 'cedit': [['', '\<Esc>'], ['xxx', 'f']],
-      \ 'clipboard': [['', 'unnamed', 'autoselect,unnamed'], ['xxx']],
+      \ 'clipboard': [['', 'unnamed', 'autoselect,unnamed', 'html', 'exclude:vimdisplay'], ['xxx', '\ze*']],
       \ 'colorcolumn': [['', '8', '+2'], ['xxx']],
       \ 'comments': [['', 'b:#'], ['xxx']],
       \ 'commentstring': [['', '/*%s*/'], ['xxx']],
@@ -150,7 +150,7 @@ let test_values = {
       \ 'viminfo': [['', '''50', '"30'], ['xxx']],
       \ 'virtualedit': [['', 'all', 'all,block'], ['xxx']],
       \ 'whichwrap': [['', 'b,s', 'bs'], ['xxx']],
-      \ 'wildmode': [['', 'full', 'list:full', 'full,longest'], ['xxx']],
+      \ 'wildmode': [['', 'full', 'list:full', 'full,longest'], ['xxx', 'a4', 'full,full,full,full,full']],
       \ 'wildoptions': [['', 'tagfile'], ['xxx']],
       \ 'winaltkeys': [['menu', 'no'], ['', 'xxx']],
       \

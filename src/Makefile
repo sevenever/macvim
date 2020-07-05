@@ -691,9 +691,12 @@ LINT_OPTIONS = -beprxzF
 
 
 # Uncomment one of the next two lines to compile Vim with the
-# address sanitizer or with the undefined sanitizer.  Works with gcc and
+# address sanitizer (asan) or with the undefined sanitizer.  Works with gcc and
 # clang.  May make Vim twice as slow.  Errors reported on stderr.
 # More at: https://code.google.com/p/address-sanitizer/
+# Useful environment variables:
+# $ export ASAN_OPTIONS="print_stacktrace=1 log_path=asan"
+# $ export LSAN_OPTIONS="suppressions=$cwd/testdir/lsan-suppress.txt"
 #SANITIZER_CFLAGS = -g -O0 -fsanitize=address -fno-omit-frame-pointer
 #SANITIZER_CFLAGS = -g -O0 -fsanitize=undefined -fno-omit-frame-pointer
 SANITIZER_LIBS = $(SANITIZER_CFLAGS)
@@ -1385,6 +1388,20 @@ CARBONGUI_BUNDLE = gui_bundle
 APPDIR = $(VIMNAME).app
 CARBONGUI_TESTARG = VIMPROG=../$(APPDIR)/Contents/MacOS/$(VIMTARGET)
 
+### Haiku GUI
+HAIKUGUI_SRC	= gui.c gui_haiku.cc
+HAIKUGUI_OBJ	= objects/gui.o objects/gui_haiku.o
+HAIKUGUI_DEFS	= -DFEAT_GUI_HAIKU
+HAIKUGUI_IPATH	=
+HAIKUGUI_LIBS_DIR =
+HAIKUGUI_LIBS1	= -lbe -lroot -ltracker -ltranslation -lsupc++ -lstdc++
+HAIKUGUI_LIBS2	=
+HAIKUGUI_INSTALL = install_normal install_haiku_extra
+HAIKUGUI_TARGETS	= installglinks_haiku
+HAIKUGUI_MAN_TARGETS =
+HAIKUGUI_TESTTARGET = gui
+HAIKUGUI_BUNDLE =
+
 # MACVIM GUI
 MACVIMGUI_SRC	= gui.c gui_beval.c MacVim/gui_macvim.m MacVim/MMBackend.m \
 		  MacVim/MacVim.m
@@ -1602,6 +1619,8 @@ BASIC_SRC = \
 	change.c \
 	charset.c \
 	cindent.c \
+	clientserver.c \
+	clipboard.c \
 	cmdexpand.c \
 	cmdhist.c \
 	crypt.c \
@@ -1746,6 +1765,8 @@ OBJ_COMMON = \
 	objects/blob.o \
 	objects/blowfish.o \
 	objects/cindent.o \
+	objects/clientserver.o \
+	objects/clipboard.o \
 	objects/cmdexpand.o \
 	objects/cmdhist.o \
 	objects/crypt.o \
@@ -1906,6 +1927,8 @@ PRO_AUTO = \
 	channel.pro \
 	charset.pro \
 	cindent.pro \
+	clientserver.pro \
+	clipboard.pro \
 	cmdexpand.pro \
 	cmdhist.pro \
 	crypt.pro \
@@ -3126,6 +3149,12 @@ objects/charset.o: charset.c
 objects/cindent.o: cindent.c
 	$(CCC) -o $@ cindent.c
 
+objects/clientserver.o: clientserver.c
+	$(CCC) -o $@ clientserver.c
+
+objects/clipboard.o: clipboard.c
+	$(CCC) -o $@ clipboard.c
+
 objects/cmdexpand.o: cmdexpand.c
 	$(CCC) -o $@ cmdexpand.c
 
@@ -3239,6 +3268,9 @@ objects/gui_gtk_gresources.o: auto/gui_gtk_gresources.c
 
 objects/gui_gtk_x11.o: gui_gtk_x11.c
 	$(CCC) -o $@ gui_gtk_x11.c
+
+objects/gui_haiku.o: gui_haiku.cc
+	$(CCC) -o $@ gui_haiku.cc
 
 objects/gui_motif.o: gui_motif.c
 	$(CCC) -o $@ gui_motif.c
@@ -3374,6 +3406,9 @@ objects/os_beos.o: os_beos.c
 
 objects/os_qnx.o: os_qnx.c
 	$(CCC) -o $@ os_qnx.c
+
+objects/os_haiku.rsrc: os_haiku.rdef
+	cat $< | $(CCC) -E - | grep -v '^#' | rc -o "$@" -
 
 objects/os_macosx.o: os_macosx.m
 	$(CCC) -o $@ os_macosx.m
@@ -3686,6 +3721,61 @@ macvim-dmg-release: macvim-signed macvim-dmg
 objects/gui_gtk_x11.o: version.h
 
 ###############################################################################
+#
+# Haiku installation
+#
+# This rule:
+#		- add resources to already installed vim binary to avoid
+#		  stripping them during install;
+#		- copy rgb.txt to runtime directory;
+#		- update system MIME database with info about vim application.
+#
+install_haiku_extra: $(DEST_BIN)/$(VIMTARGET) objects/os_haiku.rsrc
+	xres -o $(DEST_BIN)/$(VIMTARGET) objects/os_haiku.rsrc
+	$(INSTALL_DATA) $(SCRIPTSOURCE)/rgb.txt $(DEST_RT)
+	mimeset	$(DEST_BIN)/$(VIMTARGET)
+
+# List of g*-links that should be replaced with shell script equivalents.
+# This solves the problem of them from Tracker.
+#
+HAIKU_GLINKS = 	$(DEST_BIN)/$(GVIMTARGET) \
+				$(DEST_BIN)/$(GVIEWTARGET) \
+				$(DEST_BIN)/$(GVIMDIFFTARGET) \
+				$(DEST_BIN)/$(RGVIMTARGET) \
+				$(DEST_BIN)/$(RGVIEWTARGET)
+
+# This rule:
+#		- Replace gvim link with copy of vim binary.
+#		- Replace g*-links with shell script equivalents to solve the
+#		  problem of calling them from Tracker,
+#		- Add icon resources to mentioned g*-link shell scripts
+#		- in case gui-less vim.con executable available use it.
+#
+installglinks_haiku: $(HAIKU_GLINKS) install_haiku_extra
+	@catattr -r "BEOS:ICON" $(DEST_BIN)/$(GVIMTARGET) > ~icon.attr
+	for i in $(HAIKU_GLINKS); do \
+		rm $$i ; \
+		echo "#!/bin/sh" > $$i ; \
+		case $$i in \
+			$(DEST_BIN)/$(GVIMTARGET)) \
+				cp $(DEST_BIN)/$(VIMTARGET) $$i ; \
+				if [ -f $(VIMTARGET).con ] ; then \
+					$(STRIP) $(VIMTARGET).con ; \
+					mv $(VIMTARGET).con $(DEST_BIN)/$(VIMTARGET) ; \
+				fi ;; \
+			$(DEST_BIN)/$(GVIEWTARGET))    printf "%s -R %c%c" $(GVIMTARGET) '$$' '*' >> $$i;; \
+			$(DEST_BIN)/$(GVIMDIFFTARGET)) printf "%s -d %c%c" $(GVIMTARGET) '$$' '*' >> $$i;; \
+			$(DEST_BIN)/$(RGVIMTARGET))    printf "%s -Z %c%c" $(GVIMTARGET) '$$' '*' >> $$i;; \
+			$(DEST_BIN)/$(RGVIEWTARGET))   printf "%s -Z -R %c%c" $(GVIMTARGET) '$$' '*' >> $$i;; \
+			*) printf "%s %c%c" $(GVIMTARGET) '$$' '*' >> $$i;; \
+		esac ; \
+		chmod $(BINMOD) $$i ; \
+		addattr -f ~icon.attr  -t \'VICN\' BEOS:ICON $$i ; \
+	done
+	addattr -f ~icon.attr  -t \'VICN\' BEOS:ICON $(DEST_BIN)/$(VIMNAME)tutor
+	@rm ~icon.attr
+
+###############################################################################
 ### (automatically generated by 'make depend')
 ### Dependencies:
 objects/arabic.o: arabic.c vim.h protodef.h auto/config.h feature.h os_unix.h \
@@ -3725,6 +3815,14 @@ objects/charset.o: charset.c vim.h protodef.h auto/config.h feature.h os_unix.h 
  proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
  proto.h globals.h
 objects/cindent.o: cindent.c vim.h protodef.h auto/config.h feature.h os_unix.h \
+ auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+ proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+ proto.h globals.h
+objects/clientserver.o: clientserver.c vim.h protodef.h auto/config.h feature.h os_unix.h \
+ auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+ proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+ proto.h globals.h
+objects/clipboard.o: clipboard.c vim.h protodef.h auto/config.h feature.h os_unix.h \
  auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
  proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
  proto.h globals.h

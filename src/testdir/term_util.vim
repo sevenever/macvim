@@ -82,6 +82,8 @@ func RunVimInTerminal(arguments, options)
     let cols = term_getsize(buf)[1]
   endif
 
+  call term_wait(buf)
+
   " Wait for "All" or "Top" of the ruler to be shown in the last line or in
   " the status line of the last window. This can be quite slow (e.g. when
   " using valgrind).
@@ -93,11 +95,17 @@ func RunVimInTerminal(arguments, options)
     call assert_report('RunVimInTerminal() failed, screen contents: ' . join(lines, "<NL>"))
   endtry
 
+  " Starting a terminal to run Vim is always considered flaky.
+  let g:test_is_flaky = 1
+
   return buf
 endfunc
 
 " Stop a Vim running in terminal buffer "buf".
 func StopVimInTerminal(buf)
+  " Using a terminal to run Vim is always considered flaky.
+  let g:test_is_flaky = 1
+
   call assert_equal("running", term_getstatus(a:buf))
 
   " CTRL-O : works both in Normal mode and Insert mode to start a command line.
@@ -107,3 +115,5 @@ func StopVimInTerminal(buf)
   call WaitForAssert({-> assert_equal("finished", term_getstatus(a:buf))})
   only!
 endfunc
+
+" vim: shiftwidth=2 sts=2 expandtab

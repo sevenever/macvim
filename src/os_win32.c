@@ -1782,7 +1782,13 @@ mch_inchar(
 
     int		len;
     int		c;
-# define TYPEAHEADLEN 20
+# ifdef VIMDLL
+// Extra space for maximum three CSIs. E.g. U+1B6DB -> 0xF0 0x9B 0x9B 0x9B.
+#  define TYPEAHEADSPACE    6
+# else
+#  define TYPEAHEADSPACE    0
+# endif
+# define TYPEAHEADLEN	    (20 + TYPEAHEADSPACE)
     static char_u   typeahead[TYPEAHEADLEN];	// previously typed bytes.
     static int	    typeaheadlen = 0;
 
@@ -1838,7 +1844,7 @@ mch_inchar(
     // to get and still room in the buffer (up to two bytes for a char and
     // three bytes for a modifier).
     while ((typeaheadlen == 0 || WaitForChar(0L, FALSE))
-					  && typeaheadlen + 5 <= TYPEAHEADLEN)
+		         && typeaheadlen + 5 + TYPEAHEADSPACE <= TYPEAHEADLEN)
     {
 	if (typebuf_changed(tb_change_cnt))
 	{
@@ -1890,7 +1896,7 @@ mch_inchar(
 
 		if (ch2 == NUL)
 		{
-		    int	    i;
+		    int	    i, j;
 		    char_u  *p;
 		    WCHAR   ch[2];
 
@@ -1903,13 +1909,33 @@ mch_inchar(
 		    p = utf16_to_enc(ch, &n);
 		    if (p != NULL)
 		    {
-			for (i = 0; i < n; i++)
-			    typeahead[typeaheadlen + i] = p[i];
+			for (i = 0, j = 0; i < n; i++)
+			{
+			    typeahead[typeaheadlen + j++] = p[i];
+# ifdef VIMDLL
+			    if (p[i] == CSI)
+			    {
+				typeahead[typeaheadlen + j++] = KS_EXTRA;
+				typeahead[typeaheadlen + j++] = KE_CSI;
+			    }
+# endif
+			}
+			n = j;
 			vim_free(p);
 		    }
 		}
 		else
+		{
 		    typeahead[typeaheadlen] = c;
+# ifdef VIMDLL
+		    if (c == CSI)
+		    {
+			typeahead[typeaheadlen + 1] = KS_EXTRA;
+			typeahead[typeaheadlen + 2] = KE_CSI;
+			n = 3;
+		    }
+# endif
+		}
 		if (ch2 != NUL)
 		{
 		    if (c == K_NUL)
@@ -5405,6 +5431,9 @@ termcap_mode_start(void)
     if (g_fTermcapMode)
 	return;
 
+    if (!p_rs && USE_VTP)
+	vtp_printf("\033[?1049h");
+
     SaveConsoleBuffer(&g_cbNonTermcap);
 
     if (g_cbTermcap.IsValid)
@@ -5503,6 +5532,9 @@ termcap_mode_end(void)
 	 */
 	SetConsoleCursorPosition(g_hConOut, coord);
     }
+
+    if (!p_rs && USE_VTP)
+	vtp_printf("\033[?1049l");
 
     g_fTermcapMode = FALSE;
 }
@@ -5795,6 +5827,12 @@ gotoxy(
 
     if (!USE_VTP)
     {
+	// There are reports of double-width characters not displayed
+	// correctly.  This workaround should fix it, similar to how it's done
+	// for VTP.
+	g_coord.X = 0;
+	SetConsoleCursorPosition(g_hConOut, g_coord);
+
 	// external cursor coords are 1-based; internal are 0-based
 	g_coord.X = x - 1;
 	g_coord.Y = y - 1;

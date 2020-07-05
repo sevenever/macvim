@@ -1,6 +1,7 @@
 " Test for options
 
 source check.vim
+source view_util.vim
 
 func Test_whichwrap()
   set whichwrap=b,s
@@ -194,6 +195,7 @@ func Test_complete()
   new
   call feedkeys("i\<C-N>\<Esc>", 'xt')
   bwipe!
+  call assert_fails('set complete=ix', 'E535:')
   set complete&
 endfun
 
@@ -255,9 +257,10 @@ func Test_set_errors()
   call assert_fails('set regexpengine=3', 'E474:')
   call assert_fails('set history=10001', 'E474:')
   call assert_fails('set numberwidth=21', 'E474:')
-  call assert_fails('set colorcolumn=-a')
-  call assert_fails('set colorcolumn=a')
-  call assert_fails('set colorcolumn=1,')
+  call assert_fails('set colorcolumn=-a', 'E474:')
+  call assert_fails('set colorcolumn=a', 'E474:')
+  call assert_fails('set colorcolumn=1,', 'E474:')
+  call assert_fails('set colorcolumn=1;', 'E474:')
   call assert_fails('set cmdheight=-1', 'E487:')
   call assert_fails('set cmdwinheight=-1', 'E487:')
   if has('conceal')
@@ -293,8 +296,12 @@ func Test_set_errors()
     call assert_fails('set guicursor=i-ci,r-cr:h', 'E545:')
     call assert_fails('set guicursor=i-ci', 'E545:')
     call assert_fails('set guicursor=x', 'E545:')
+    call assert_fails('set guicursor=x:', 'E546:')
     call assert_fails('set guicursor=r-cr:horx', 'E548:')
     call assert_fails('set guicursor=r-cr:hor0', 'E549:')
+  endif
+  if has('mouseshape')
+    call assert_fails('se mouseshape=i-r:x', 'E547:')
   endif
   call assert_fails('set backupext=~ patchmode=~', 'E589:')
   call assert_fails('set winminheight=10 winheight=9', 'E591:')
@@ -375,6 +382,10 @@ func Test_set_ttytype()
 
   set ttytype&
   call assert_equal(&ttytype, &term)
+
+  if has('gui') && !has('gui_running')
+    call assert_fails('set term=gui', 'E531:')
+  endif
 endfunc
 
 func Test_set_all()
@@ -391,8 +402,7 @@ endfunc
 func Test_set_one_column()
   let out_mult = execute('set all')->split("\n")
   let out_one = execute('set! all')->split("\n")
-  " one column should be two to four times as many lines
-  call assert_inrange(len(out_mult) * 2, len(out_mult) * 4, len(out_one))
+  call assert_true(len(out_mult) < len(out_one))
 endfunc
 
 func Test_set_values()
@@ -656,7 +666,15 @@ func Test_buftype()
   call setline(1, ['L1'])
   set buftype=nowrite
   call assert_fails('write', 'E382:')
-  close!
+
+  for val in ['', 'nofile', 'nowrite', 'acwrite', 'quickfix', 'help', 'terminal', 'prompt', 'popup']
+    exe 'set buftype=' .. val
+    call writefile(['something'], 'XBuftype')
+    call assert_fails('write XBuftype', 'E13:', 'with buftype=' .. val)
+  endfor
+
+  call delete('XBuftype')
+  bwipe!
 endfunc
 
 " Test for the 'shellquote' option
@@ -670,6 +688,37 @@ func Test_shellquote()
   set verbose&
   set shellquote&
   call assert_match(': "#echo Hello#"', v)
+endfunc
+
+" Test for the 'rightleftcmd' option
+func Test_rightleftcmd()
+  CheckFeature rightleft
+  set rightleft
+  set rightleftcmd
+
+  let g:l = []
+  func AddPos()
+    call add(g:l, screencol())
+    return ''
+  endfunc
+  cmap <expr> <F2> AddPos()
+
+  call feedkeys("/\<F2>abc\<Left>\<F2>\<Right>\<Right>\<F2>" ..
+        \ "\<Left>\<F2>\<Esc>", 'xt')
+  call assert_equal([&co - 1, &co - 4, &co - 2, &co - 3], g:l)
+
+  cunmap <F2>
+  unlet g:l
+  set rightleftcmd&
+  set rightleft&
+endfunc
+
+" Test for the "debug" option
+func Test_debug_option()
+  set debug=beep
+  exe "normal \<C-c>"
+  call assert_equal('Beep!', Screenline(&lines))
+  set debug&
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

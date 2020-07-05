@@ -96,9 +96,9 @@ NEW_TESTS = \
 	test_escaped_glob \
 	test_eval_stuff \
 	test_ex_equal \
+	test_ex_mode \
 	test_ex_undo \
 	test_ex_z \
-	test_ex_mode \
 	test_excmd \
 	test_exec_while_if \
 	test_execute_func \
@@ -146,6 +146,7 @@ NEW_TESTS = \
 	test_iminsert \
 	test_increment \
 	test_increment_dbcs \
+	test_indent \
 	test_ins_complete \
 	test_interrupt \
 	test_job_fails \
@@ -175,11 +176,12 @@ NEW_TESTS = \
 	test_matchadd_conceal \
 	test_matchadd_conceal_utf8 \
 	test_memory_usage \
-	test_method \
 	test_menu \
 	test_messages \
+	test_method \
 	test_mksession \
 	test_mksession_utf8 \
+	test_modeless \
 	test_modeline \
 	test_move \
 	test_nested_function \
@@ -222,6 +224,7 @@ NEW_TESTS = \
 	test_search \
 	test_search_stat \
 	test_searchpos \
+	test_selectmode \
 	test_set \
 	test_sha256 \
 	test_shift \
@@ -272,6 +275,7 @@ NEW_TESTS = \
 	test_vartabs \
 	test_vim9_disassemble \
 	test_vim9_expr \
+	test_vim9_func \
 	test_vim9_script \
 	test_viminfo \
 	test_vimscript \
@@ -377,6 +381,7 @@ NEW_TESTS_RES = \
 	test_iminsert.res \
 	test_increment.res \
 	test_increment_dbcs.res \
+	test_indent.res \
 	test_ins_complete.res \
 	test_interrupt.res \
 	test_job_fails.res \
@@ -400,10 +405,13 @@ NEW_TESTS_RES = \
 	test_marks.res \
 	test_match.res \
 	test_matchadd_conceal.res \
+	test_matchadd_conceal_utf8.res \
 	test_memory_usage.res \
+	test_menu.res \
 	test_messages.res \
 	test_method.res \
 	test_mksession.res \
+	test_modeless.res \
 	test_modeline.res \
 	test_nested_function.res \
 	test_netbeans.res \
@@ -438,6 +446,7 @@ NEW_TESTS_RES = \
 	test_scrollbind.res \
 	test_search.res \
 	test_search_stat.res \
+	test_selectmode.res \
 	test_shortpathname.res \
 	test_signals.res \
 	test_signs.res \
@@ -477,6 +486,7 @@ NEW_TESTS_RES = \
 	test_vartabs.res \
 	test_vim9_disassemble.res \
 	test_vim9_expr.res \
+	test_vim9_func.res \
 	test_vim9_script.res \
 	test_viminfo.res \
 	test_vimscript.res \
