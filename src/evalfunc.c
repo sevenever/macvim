@@ -253,6 +253,7 @@ static void f_tolower(typval_T *argvars, typval_T *rettv);
 static void f_toupper(typval_T *argvars, typval_T *rettv);
 static void f_tr(typval_T *argvars, typval_T *rettv);
 static void f_trim(typval_T *argvars, typval_T *rettv);
+static void f_trimjumplist(typval_T *argvars, typval_T *rettv);
 #ifdef FEAT_FLOAT
 static void f_trunc(typval_T *argvars, typval_T *rettv);
 #endif
@@ -834,6 +835,7 @@ static funcentry_T global_functions[] =
     {"toupper",		1, 1, FEARG_1,	  &t_string,	f_toupper},
     {"tr",		3, 3, FEARG_1,	  &t_string,	f_tr},
     {"trim",		1, 2, FEARG_1,	  &t_string,	f_trim},
+    {"trimjumplist",	1, 3, FEARG_2,	  &t_void,	f_trimjumplist},
 #ifdef FEAT_FLOAT
     {"trunc",		1, 1, FEARG_1,	  &t_float,	f_trunc},
 #endif
@@ -2993,6 +2995,33 @@ f_getfontname(typval_T *argvars UNUSED, typval_T *rettv)
 	if (argvars[0].v_type != VAR_UNKNOWN)
 	    gui_mch_free_font(font);
     }
+#endif
+}
+
+/*
+ * "trimjumplist()" function
+ */
+    static void
+f_trimjumplist(typval_T *argvars, typval_T *rettv)
+{
+#ifdef FEAT_JUMPLIST
+    win_T	*wp;
+    int		num;
+
+    num = tv_get_lnum(&argvars[0]);
+    if (num <= 0)
+	return;
+    wp = find_tabwin(&argvars[1], &argvars[2], NULL);
+    if (wp == NULL)
+	return;
+
+    while(num-- > 0 && wp->w_jumplistlen > 0) {
+	vim_free(wp->w_jumplist[wp->w_jumplistlen - 1].fname);
+	wp->w_jumplist[wp->w_jumplistlen - 1].fname = NULL;
+	wp->w_jumplistlen--;
+    }
+    if (wp->w_jumplistidx > wp->w_jumplistlen)
+	wp->w_jumplistidx = wp->w_jumplistlen;
 #endif
 }
 

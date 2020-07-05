@@ -129,7 +129,7 @@ typedef struct {
 // increase the number of possible marks.
 #define NMARKS		('z' - 'a' + 1)	// max. # of named marks
 #define EXTRA_MARKS	10		// marks 0-9
-#define JUMPLISTSIZE	100		// max. # of marks in jump list
+#define JUMPLISTSIZE	1000		// max. # of marks in jump list
 #define TAGSTACKSIZE	20		// max. # of tags in tag stack
 
 typedef struct filemark
