@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 47;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -28,7 +28,6 @@
 		1D80FBD40CBBD3B700102A1C /* MMFullScreenWindow.m in Sources */ = {isa = PBXBuildFile; fileRef = 1D80FBD00CBBD3B700102A1C /* MMFullScreenWindow.m */; };
 		1D80FBD60CBBD3B700102A1C /* MMVimView.m in Sources */ = {isa = PBXBuildFile; fileRef = 1D80FBD20CBBD3B700102A1C /* MMVimView.m */; };
 		1D8B5A53104AF9FF002E59D5 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D8B5A52104AF9FF002E59D5 /* Carbon.framework */; };
-		1D8BEA74104992290069B072 /* FindAndReplace.nib in Resources */ = {isa = PBXBuildFile; fileRef = 1D8BEA73104992290069B072 /* FindAndReplace.nib */; };
 		1D9C60520EF79C0C0034AD44 /* MacVim.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1D9C602E0EF79C0C0034AD44 /* MacVim.icns */; };
 		1DCD00BF0E50B2B700460166 /* Attention.png in Resources */ = {isa = PBXBuildFile; fileRef = 1DCD00AA0E50B2B700460166 /* Attention.png */; };
 		1DCD00C00E50B2B700460166 /* Copy.png in Resources */ = {isa = PBXBuildFile; fileRef = 1DCD00AB0E50B2B700460166 /* Copy.png */; };
@@ -56,7 +55,6 @@
 		1DD3D51E0D82D4C9006E4320 /* ibeam.png in Resources */ = {isa = PBXBuildFile; fileRef = 1DD3D51D0D82D4C9006E4320 /* ibeam.png */; };
 		1DD66ECE0C803D3600EBDAB3 /* MMApplication.m in Sources */ = {isa = PBXBuildFile; fileRef = 1DD66ECC0C803D3600EBDAB3 /* MMApplication.m */; };
 		1DD9F5E50C85D60500E8D5A5 /* SystemColors.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1DD9F5E40C85D60500E8D5A5 /* SystemColors.plist */; };
-		1DE3F8E70D50F80500052B9E /* Preferences.nib in Resources */ = {isa = PBXBuildFile; fileRef = 1DE3F8E50D50F80500052B9E /* Preferences.nib */; };
 		1DE3F8EB0D50F84600052B9E /* MMPreferenceController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1DE3F8E90D50F84600052B9E /* MMPreferenceController.m */; };
 		1DE608B40C587FDA0055263D /* runtime in Copy Vim Runtime Files */ = {isa = PBXBuildFile; fileRef = 1DE602470C587FD10055263D /* runtime */; };
 		1DE63FFB0E71820F00959BDB /* MMCoreTextView.m in Sources */ = {isa = PBXBuildFile; fileRef = 1DE63FFA0E71820F00959BDB /* MMCoreTextView.m */; };
@@ -69,10 +67,12 @@
 		52A364731C4A5789005757EC /* Sparkle.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52A364721C4A5789005757EC /* Sparkle.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		52A364761C4A57C1005757EC /* Sparkle.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 52A364721C4A5789005757EC /* Sparkle.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		52B7ED9B1C4A4D6900AFFF15 /* dsa_pub.pem in Resources */ = {isa = PBXBuildFile; fileRef = 52B7ED9A1C4A4D6900AFFF15 /* dsa_pub.pem */; };
-		8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 29B97318FDCFA39411CA2CEA /* MainMenu.nib */; };
 		8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
 		8D11072D0486CEB800E47090 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 29B97316FDCFA39411CA2CEA /* main.m */; settings = {ATTRIBUTES = (); }; };
 		8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
+		907FF7512521BCE200BADACB /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 907FF74F2521BCE200BADACB /* MainMenu.xib */; };
+		907FF7542521BDA600BADACB /* Preferences.xib in Resources */ = {isa = PBXBuildFile; fileRef = 907FF7522521BDA600BADACB /* Preferences.xib */; };
+		907FF7572521BDC300BADACB /* FindAndReplace.xib in Resources */ = {isa = PBXBuildFile; fileRef = 907FF7552521BDC200BADACB /* FindAndReplace.xib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -171,7 +171,6 @@
 		0395A8310D71ED7800881434 /* DBPrefsWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DBPrefsWindowController.h; sourceTree = "<group>"; };
 		0395A8320D71ED7800881434 /* DBPrefsWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DBPrefsWindowController.m; sourceTree = "<group>"; };
 		0395A8A90D72D88B00881434 /* General.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = General.png; sourceTree = "<group>"; };
-		089C165DFE840E0CC02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		1D09AB3F0C6A4D520045497E /* MMTypesetter.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MMTypesetter.h; sourceTree = "<group>"; };
 		1D09AB400C6A4D520045497E /* MMTypesetter.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = MMTypesetter.m; sourceTree = "<group>"; };
@@ -195,7 +194,6 @@
 		1D44972111FCA9B400B0630F /* MMCoreTextView+ToolTip.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "MMCoreTextView+ToolTip.m"; sourceTree = "<group>"; };
 		1D493D570C5247BF00AB718C /* Vim */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = Vim; path = ../Vim; sourceTree = SOURCE_ROOT; };
 		1D493DB30C52533B00AB718C /* PSMTabBarControl.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PSMTabBarControl.xcodeproj; path = PSMTabBarControl/PSMTabBarControl.xcodeproj; sourceTree = "<group>"; };
-		1D6008820E96886D003763F0 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/FindAndReplace.nib; sourceTree = "<group>"; };
 		1D6008890E96A0B2003763F0 /* MMFindReplaceController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MMFindReplaceController.h; sourceTree = "<group>"; };
 		1D60088A0E96A0B2003763F0 /* MMFindReplaceController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MMFindReplaceController.m; sourceTree = "<group>"; };
 		1D80591D0E1185EA001699D1 /* Miscellaneous.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Miscellaneous.m; sourceTree = "<group>"; };
@@ -233,7 +231,6 @@
 		1DD66ECB0C803D3600EBDAB3 /* MMApplication.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MMApplication.h; sourceTree = "<group>"; };
 		1DD66ECC0C803D3600EBDAB3 /* MMApplication.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = MMApplication.m; sourceTree = "<group>"; };
 		1DD9F5E40C85D60500E8D5A5 /* SystemColors.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = SystemColors.plist; sourceTree = "<group>"; };
-		1DE3F8E60D50F80500052B9E /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/Preferences.nib; sourceTree = "<group>"; };
 		1DE3F8E80D50F84600052B9E /* MMPreferenceController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MMPreferenceController.h; sourceTree = "<group>"; };
 		1DE3F8E90D50F84600052B9E /* MMPreferenceController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = MMPreferenceController.m; sourceTree = "<group>"; };
 		1DE602470C587FD10055263D /* runtime */ = {isa = PBXFileReference; lastKnownFileType = folder; name = runtime; path = ../../runtime; sourceTree = SOURCE_ROOT; };
@@ -244,7 +241,6 @@
 		1DE9B94E0D341AB8008FEDD4 /* MMWindow.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = MMWindow.m; sourceTree = "<group>"; };
 		1DED785F0C6DE43D0079945F /* vimrc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = vimrc; sourceTree = "<group>"; };
 		29B97316FDCFA39411CA2CEA /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		29B97319FDCFA39411CA2CEA /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
 		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		32CA4F630368D1EE00C91783 /* MacVim_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MacVim_Prefix.pch; sourceTree = "<group>"; };
@@ -292,6 +288,12 @@
 		901C07182430C8CD00797C2A /* viminfo.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = viminfo.c; path = ../viminfo.c; sourceTree = "<group>"; };
 		901C07192430C8CD00797C2A /* filepath.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = filepath.c; path = ../filepath.c; sourceTree = "<group>"; };
 		901C071A2430C8CD00797C2A /* session.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = session.c; path = ../session.c; sourceTree = "<group>"; };
+		907FF75A2521C09F00BADACB /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/FindAndReplace.xib; sourceTree = "<group>"; };
+		907FF75B2521C09F00BADACB /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/Preferences.xib; sourceTree = "<group>"; };
+		907FF75C2521C0A000BADACB /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		907FF7622521C2FB00BADACB /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/MainMenu.strings"; sourceTree = "<group>"; };
+		907FF7632521CBAC00BADACB /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/MainMenu.strings"; sourceTree = "<group>"; };
+		907FF7642521CBC500BADACB /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/MainMenu.strings; sourceTree = "<group>"; };
 		90922A3B221D429500F1E1F4 /* misc2.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = misc2.c; path = ../misc2.c; sourceTree = "<group>"; };
 		90922A3C221D429500F1E1F4 /* if_mzsch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = if_mzsch.c; path = ../if_mzsch.c; sourceTree = "<group>"; };
 		90922A3D221D429500F1E1F4 /* version.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = version.h; path = ../version.h; sourceTree = "<group>"; };
@@ -301,7 +303,6 @@
 		90922A41221D429500F1E1F4 /* iscygpty.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = iscygpty.c; path = ../iscygpty.c; sourceTree = "<group>"; };
 		90922A42221D429600F1E1F4 /* if_python3.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = if_python3.c; path = ../if_python3.c; sourceTree = "<group>"; };
 		90922A43221D429600F1E1F4 /* dict.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = dict.c; path = ../dict.c; sourceTree = "<group>"; };
-		90922A44221D429600F1E1F4 /* gui_mac.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = gui_mac.c; path = ../gui_mac.c; sourceTree = "<group>"; };
 		90922A45221D429600F1E1F4 /* kword_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = kword_test.c; path = ../kword_test.c; sourceTree = "<group>"; };
 		90922A46221D429600F1E1F4 /* if_perlsfio.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = if_perlsfio.c; path = ../if_perlsfio.c; sourceTree = "<group>"; };
 		90922A47221D429600F1E1F4 /* pty.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = pty.c; path = ../pty.c; sourceTree = "<group>"; };
@@ -323,14 +324,12 @@
 		90922A57221D429700F1E1F4 /* hardcopy.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = hardcopy.c; path = ../hardcopy.c; sourceTree = "<group>"; };
 		90922A58221D429700F1E1F4 /* list.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = list.c; path = ../list.c; sourceTree = "<group>"; };
 		90922A59221D429700F1E1F4 /* glbl_ime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = glbl_ime.h; path = ../glbl_ime.h; sourceTree = "<group>"; };
-		90922A5A221D429700F1E1F4 /* hangulin.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = hangulin.c; path = ../hangulin.c; sourceTree = "<group>"; };
 		90922A5B221D429700F1E1F4 /* eval.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = eval.c; path = ../eval.c; sourceTree = "<group>"; };
 		90922A5C221D429700F1E1F4 /* userfunc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = userfunc.c; path = ../userfunc.c; sourceTree = "<group>"; };
 		90922A5D221D429700F1E1F4 /* os_mac.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = os_mac.h; path = ../os_mac.h; sourceTree = "<group>"; };
 		90922A5E221D429700F1E1F4 /* nbdebug.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = nbdebug.h; path = ../nbdebug.h; sourceTree = "<group>"; };
 		90922A5F221D429700F1E1F4 /* message_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = message_test.c; path = ../message_test.c; sourceTree = "<group>"; };
 		90922A60221D429800F1E1F4 /* tag.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tag.c; path = ../tag.c; sourceTree = "<group>"; };
-		90922A61221D429800F1E1F4 /* xpm_w32.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = xpm_w32.c; path = ../xpm_w32.c; sourceTree = "<group>"; };
 		90922A62221D429800F1E1F4 /* blowfish.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = blowfish.c; path = ../blowfish.c; sourceTree = "<group>"; };
 		90922A63221D429800F1E1F4 /* message.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = message.c; path = ../message.c; sourceTree = "<group>"; };
 		90922A64221D429800F1E1F4 /* termlib.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = termlib.c; path = ../termlib.c; sourceTree = "<group>"; };
@@ -350,7 +349,6 @@
 		90922A72221D429900F1E1F4 /* dosinst.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = dosinst.c; path = ../dosinst.c; sourceTree = "<group>"; };
 		90922A73221D429900F1E1F4 /* ops.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = ops.c; path = ../ops.c; sourceTree = "<group>"; };
 		90922A74221D429900F1E1F4 /* ex_getln.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = ex_getln.c; path = ../ex_getln.c; sourceTree = "<group>"; };
-		90922A75221D429900F1E1F4 /* winclip.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = winclip.c; path = ../winclip.c; sourceTree = "<group>"; };
 		90922A76221D429900F1E1F4 /* ui.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = ui.c; path = ../ui.c; sourceTree = "<group>"; };
 		90922A77221D429900F1E1F4 /* fold.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = fold.c; path = ../fold.c; sourceTree = "<group>"; };
 		90922A78221D429A00F1E1F4 /* menu.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = menu.c; path = ../menu.c; sourceTree = "<group>"; };
@@ -367,7 +365,6 @@
 		90922A83221D429A00F1E1F4 /* option.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = option.c; path = ../option.c; sourceTree = "<group>"; };
 		90922A84221D429B00F1E1F4 /* term.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = term.c; path = ../term.c; sourceTree = "<group>"; };
 		90922A85221D429B00F1E1F4 /* gui.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = gui.h; path = ../gui.h; sourceTree = "<group>"; };
-		90922A86221D429B00F1E1F4 /* arabic.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = arabic.h; path = ../arabic.h; sourceTree = "<group>"; };
 		90922A87221D429B00F1E1F4 /* if_tcl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = if_tcl.c; path = ../if_tcl.c; sourceTree = "<group>"; };
 		90922A88221D429B00F1E1F4 /* blob.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = blob.c; path = ../blob.c; sourceTree = "<group>"; };
 		90922A89221D429B00F1E1F4 /* if_mzsch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = if_mzsch.h; path = ../if_mzsch.h; sourceTree = "<group>"; };
@@ -376,7 +373,6 @@
 		90922A8C221D429B00F1E1F4 /* os_unix.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = os_unix.h; path = ../os_unix.h; sourceTree = "<group>"; };
 		90922A8D221D429B00F1E1F4 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = main.c; path = ../main.c; sourceTree = "<group>"; };
 		90922A8E221D429B00F1E1F4 /* ex_cmds.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = ex_cmds.h; path = ../ex_cmds.h; sourceTree = "<group>"; };
-		90922A8F221D429B00F1E1F4 /* popupmnu.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = popupmnu.c; path = ../popupmnu.c; sourceTree = "<group>"; };
 		90922A90221D429B00F1E1F4 /* regexp_nfa.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = regexp_nfa.c; path = ../regexp_nfa.c; sourceTree = "<group>"; };
 		90922A91221D429B00F1E1F4 /* textprop.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = textprop.c; path = ../textprop.c; sourceTree = "<group>"; };
 		90922A92221D429B00F1E1F4 /* regexp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = regexp.h; path = ../regexp.h; sourceTree = "<group>"; };
@@ -385,9 +381,7 @@
 		90922A95221D429B00F1E1F4 /* crypt.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = crypt.c; path = ../crypt.c; sourceTree = "<group>"; };
 		90922A96221D429B00F1E1F4 /* vim.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = vim.h; path = ../vim.h; sourceTree = "<group>"; };
 		90922A97221D429B00F1E1F4 /* syntax.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = syntax.c; path = ../syntax.c; sourceTree = "<group>"; };
-		90922A98221D429B00F1E1F4 /* uninstal.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = uninstal.c; path = ../uninstal.c; sourceTree = "<group>"; };
 		90922A99221D429B00F1E1F4 /* if_xcmdsrv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = if_xcmdsrv.c; path = ../if_xcmdsrv.c; sourceTree = "<group>"; };
-		90922A9A221D429C00F1E1F4 /* vimio.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = vimio.h; path = ../vimio.h; sourceTree = "<group>"; };
 		90922A9B221D429C00F1E1F4 /* evalfunc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = evalfunc.c; path = ../evalfunc.c; sourceTree = "<group>"; };
 		90922A9C221D429C00F1E1F4 /* sha256.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = sha256.c; path = ../sha256.c; sourceTree = "<group>"; };
 		90922A9D221D429C00F1E1F4 /* screen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = screen.c; path = ../screen.c; sourceTree = "<group>"; };
@@ -398,7 +392,6 @@
 		90922AA2221D429C00F1E1F4 /* misc1.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = misc1.c; path = ../misc1.c; sourceTree = "<group>"; };
 		90922AA3221D429C00F1E1F4 /* normal.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = normal.c; path = ../normal.c; sourceTree = "<group>"; };
 		90922AA4221D429C00F1E1F4 /* if_ole.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = if_ole.h; path = ../if_ole.h; sourceTree = "<group>"; };
-		90922AA5221D429C00F1E1F4 /* xpm_w32.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = xpm_w32.h; path = ../xpm_w32.h; sourceTree = "<group>"; };
 		90922AA6221D429C00F1E1F4 /* move.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = move.c; path = ../move.c; sourceTree = "<group>"; };
 		90922AA7221D429C00F1E1F4 /* os_unix.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = os_unix.c; path = ../os_unix.c; sourceTree = "<group>"; };
 		90922AA8221D429C00F1E1F4 /* spell.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = spell.c; path = ../spell.c; sourceTree = "<group>"; };
@@ -423,6 +416,37 @@
 		90922ABC221D42F700F1E1F4 /* MMBackend.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MMBackend.h; sourceTree = "<group>"; };
 		90922ABD221D42F700F1E1F4 /* gui_macvim.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = gui_macvim.m; sourceTree = "<group>"; };
 		90922ABE221D42F700F1E1F4 /* MMBackend.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MMBackend.m; sourceTree = "<group>"; };
+		90F84F1E2521F2270000268B /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F232521F6480000268B /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = ca.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F242521F6590000268B /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F252521F6670000268B /* da */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = da; path = da.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F262521F69A0000268B /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F272521F6A70000268B /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F282521F6B10000268B /* fi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fi; path = fi.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F292521F6C10000268B /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F2A2521F6CB0000268B /* hu */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = hu; path = hu.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F2B2521F6D60000268B /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F2C2521F6E30000268B /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F2D2521F7FC0000268B /* nb */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nb; path = nb.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F2E2521F8550000268B /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F2F2521F8600000268B /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/MainMenu.strings"; sourceTree = "<group>"; };
+		90F84F302521F8690000268B /* pt-PT */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-PT"; path = "pt-PT.lproj/MainMenu.strings"; sourceTree = "<group>"; };
+		90F84F312521F8760000268B /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F322521F87F0000268B /* sv */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = sv; path = sv.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		90F84F332521F8880000268B /* tr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		95241CE12573D587001E3711 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		95241CF025749CC6001E3711 /* vim9type.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = vim9type.c; path = ../vim9type.c; sourceTree = "<group>"; };
+		95241CF125749CC6001E3711 /* help.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = help.c; path = ../help.c; sourceTree = "<group>"; };
+		95241CF225749CC6001E3711 /* gui_xim.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = gui_xim.c; path = ../gui_xim.c; sourceTree = "<group>"; };
+		95241CF325749CC7001E3711 /* job.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = job.c; path = ../job.c; sourceTree = "<group>"; };
+		95241CF425749CC7001E3711 /* textformat.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = textformat.c; path = ../textformat.c; sourceTree = "<group>"; };
+		95241CF525749CC7001E3711 /* match.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = match.c; path = ../match.c; sourceTree = "<group>"; };
+		95241CF625749CC7001E3711 /* locale.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = locale.c; path = ../locale.c; sourceTree = "<group>"; };
+		95241CF725749CC7001E3711 /* typval.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = typval.c; path = ../typval.c; sourceTree = "<group>"; };
+		95241CF825749CC7001E3711 /* clientserver.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = clientserver.c; path = ../clientserver.c; sourceTree = "<group>"; };
+		95241CF925749CC7001E3711 /* errors.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = errors.h; path = ../errors.h; sourceTree = "<group>"; };
+		95241CFA25749CC7001E3711 /* textobject.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = textobject.c; path = ../textobject.c; sourceTree = "<group>"; };
+		95241CFB25749D4A001E3711 /* os_macosx.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = os_macosx.m; path = ../os_macosx.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -591,7 +615,6 @@
 				52B7ED9A1C4A4D6900AFFF15 /* dsa_pub.pem */,
 				1D384A0D100D671700D3C22F /* KeyBinding.plist */,
 				1D9C602E0EF79C0C0034AD44 /* MacVim.icns */,
-				1D8BEA73104992290069B072 /* FindAndReplace.nib */,
 				0395A8A90D72D88B00881434 /* General.png */,
 				1D22374A0E45DF4800E6FFFF /* Advanced.png */,
 				1DD3D51D0D82D4C9006E4320 /* ibeam.png */,
@@ -603,9 +626,10 @@
 				1D0E051B0BA5F83800B6049E /* Colors.plist */,
 				8D1107310486CEB800E47090 /* Info.plist */,
 				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
-				1DE3F8E50D50F80500052B9E /* Preferences.nib */,
-				29B97318FDCFA39411CA2CEA /* MainMenu.nib */,
 				528DA6691426D4EB003380F1 /* macvim-askpass */,
+				907FF7552521BDC200BADACB /* FindAndReplace.xib */,
+				907FF7522521BDA600BADACB /* Preferences.xib */,
+				907FF74F2521BCE200BADACB /* MainMenu.xib */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -641,48 +665,9 @@
 		90922A3A221D417800F1E1F4 /* Vim Source */ = {
 			isa = PBXGroup;
 			children = (
-				901C070F2430C8CC00797C2A /* arglist.c */,
-				901C06FB2430C8C900797C2A /* bufwrite.c */,
-				901C06F92430C8C900797C2A /* change.c */,
-				901C07002430C8CA00797C2A /* cindent.c */,
-				901C07112430C8CC00797C2A /* clipboard.c */,
-				901C07042430C8CA00797C2A /* cmdexpand.c */,
-				901C06F82430C8C900797C2A /* cmdhist.c */,
-				901C06FE2430C8CA00797C2A /* debugger.c */,
-				901C07032430C8CA00797C2A /* drawline.c */,
-				901C06FD2430C8CA00797C2A /* drawscreen.c */,
-				901C07082430C8CB00797C2A /* evalbuffer.c */,
-				901C06FC2430C8CA00797C2A /* evalvars.c */,
-				901C06FA2430C8C900797C2A /* evalwindow.c */,
-				901C07192430C8CD00797C2A /* filepath.c */,
-				901C07122430C8CC00797C2A /* highlight.c */,
-				901C070A2430C8CB00797C2A /* insexpand.c */,
-				901C06F42430C8C800797C2A /* map.c */,
-				901C07152430C8CC00797C2A /* mouse.c */,
-				901C07162430C8CD00797C2A /* optiondefs.h */,
-				901C07172430C8CD00797C2A /* optionstr.c */,
-				901C06FF2430C8CA00797C2A /* popupmenu.c */,
-				901C07022430C8CA00797C2A /* popupwin.c */,
-				901C070B2430C8CB00797C2A /* profiler.c */,
-				901C07142430C8CC00797C2A /* regexp_bt.c */,
-				901C07062430C8CB00797C2A /* register.c */,
-				901C07052430C8CB00797C2A /* scriptfile.c */,
-				901C071A2430C8CD00797C2A /* session.c */,
-				901C070D2430C8CC00797C2A /* sound.c */,
-				901C07092430C8CB00797C2A /* spellsuggest.c */,
-				901C06F72430C8C900797C2A /* testing.c */,
-				901C06F62430C8C900797C2A /* time.c */,
-				901C07132430C8CC00797C2A /* uninstall.c */,
-				901C07012430C8CA00797C2A /* usercmd.c */,
-				901C070E2430C8CC00797C2A /* vim9.h */,
-				901C070C2430C8CB00797C2A /* vim9compile.c */,
-				901C07072430C8CB00797C2A /* vim9execute.c */,
-				901C07102430C8CC00797C2A /* vim9script.c */,
-				901C07182430C8CD00797C2A /* viminfo.c */,
-				90922ABB221D42DC00F1E1F4 /* MacVim */,
 				90922A66221D429800F1E1F4 /* alloc.h */,
 				90922A54221D429700F1E1F4 /* arabic.c */,
-				90922A86221D429B00F1E1F4 /* arabic.h */,
+				901C070F2430C8CC00797C2A /* arglist.c */,
 				90922AB0221D429C00F1E1F4 /* ascii.h */,
 				90922AA1221D429C00F1E1F4 /* autocmd.c */,
 				90922A65221D429800F1E1F4 /* beval.c */,
@@ -690,19 +675,33 @@
 				90922A88221D429B00F1E1F4 /* blob.c */,
 				90922A62221D429800F1E1F4 /* blowfish.c */,
 				90922AA9221D429C00F1E1F4 /* buffer.c */,
+				901C06FB2430C8C900797C2A /* bufwrite.c */,
+				901C06F92430C8C900797C2A /* change.c */,
 				90922A8A221D429B00F1E1F4 /* channel.c */,
 				90922A93221D429B00F1E1F4 /* charset.c */,
+				901C07002430C8CA00797C2A /* cindent.c */,
+				95241CF825749CC7001E3711 /* clientserver.c */,
+				901C07112430C8CC00797C2A /* clipboard.c */,
+				901C07042430C8CA00797C2A /* cmdexpand.c */,
+				901C06F82430C8C900797C2A /* cmdhist.c */,
 				90922A56221D429700F1E1F4 /* crypt_zip.c */,
 				90922A95221D429B00F1E1F4 /* crypt.c */,
+				901C06FE2430C8CA00797C2A /* debugger.c */,
 				90922A43221D429600F1E1F4 /* dict.c */,
 				90922AB6221D429D00F1E1F4 /* diff.c */,
 				90922A3E221D429500F1E1F4 /* digraph.c */,
 				90922AAB221D429C00F1E1F4 /* dlldata.c */,
 				90922A72221D429900F1E1F4 /* dosinst.c */,
 				90922A6C221D429900F1E1F4 /* dosinst.h */,
+				901C07032430C8CA00797C2A /* drawline.c */,
+				901C06FD2430C8CA00797C2A /* drawscreen.c */,
 				90922A7D221D429A00F1E1F4 /* edit.c */,
+				95241CF925749CC7001E3711 /* errors.h */,
 				90922A5B221D429700F1E1F4 /* eval.c */,
+				901C07082430C8CB00797C2A /* evalbuffer.c */,
 				90922A9B221D429C00F1E1F4 /* evalfunc.c */,
+				901C06FC2430C8CA00797C2A /* evalvars.c */,
+				901C06FA2430C8C900797C2A /* evalwindow.c */,
 				90922A48221D429600F1E1F4 /* ex_cmdidxs.h */,
 				90922AAD221D429C00F1E1F4 /* ex_cmds.c */,
 				90922A8E221D429B00F1E1F4 /* ex_cmds.h */,
@@ -712,6 +711,7 @@
 				90922A74221D429900F1E1F4 /* ex_getln.c */,
 				90922AAE221D429C00F1E1F4 /* feature.h */,
 				90922A6F221D429900F1E1F4 /* fileio.c */,
+				901C07192430C8CD00797C2A /* filepath.c */,
 				90922A80221D429A00F1E1F4 /* findfile.c */,
 				90922A77221D429900F1E1F4 /* fold.c */,
 				90922AA0221D429C00F1E1F4 /* getchar.c */,
@@ -720,12 +720,13 @@
 				90922A6B221D429800F1E1F4 /* gui_at_fs.c */,
 				90922A3F221D429500F1E1F4 /* gui_at_sb.c */,
 				90922A55221D429700F1E1F4 /* gui_beval.c */,
-				90922A44221D429600F1E1F4 /* gui_mac.c */,
+				95241CF225749CC6001E3711 /* gui_xim.c */,
 				90922A4C221D429600F1E1F4 /* gui.c */,
 				90922A85221D429B00F1E1F4 /* gui.h */,
-				90922A5A221D429700F1E1F4 /* hangulin.c */,
 				90922A57221D429700F1E1F4 /* hardcopy.c */,
 				90922A50221D429600F1E1F4 /* hashtab.c */,
+				95241CF125749CC6001E3711 /* help.c */,
+				901C07122430C8CC00797C2A /* highlight.c */,
 				90922A6A221D429800F1E1F4 /* if_cscope.c */,
 				90922A9E221D429C00F1E1F4 /* if_cscope.h */,
 				90922AB4221D429C00F1E1F4 /* if_lua.c */,
@@ -741,16 +742,22 @@
 				90922A99221D429B00F1E1F4 /* if_xcmdsrv.c */,
 				90922A7A221D429A00F1E1F4 /* iid_ole.c */,
 				90922A8B221D429B00F1E1F4 /* indent.c */,
+				901C070A2430C8CB00797C2A /* insexpand.c */,
 				90922A41221D429500F1E1F4 /* iscygpty.c */,
 				90922A52221D429600F1E1F4 /* iscygpty.h */,
+				95241CF325749CC7001E3711 /* job.c */,
 				90922A4F221D429600F1E1F4 /* json_test.c */,
 				90922A9F221D429C00F1E1F4 /* json.c */,
 				90922A40221D429500F1E1F4 /* keymap.h */,
 				90922A45221D429600F1E1F4 /* kword_test.c */,
 				90922A58221D429700F1E1F4 /* list.c */,
+				95241CF625749CC7001E3711 /* locale.c */,
 				90922A69221D429800F1E1F4 /* macros.h */,
+				90922ABB221D42DC00F1E1F4 /* MacVim */,
 				90922A8D221D429B00F1E1F4 /* main.c */,
+				901C06F42430C8C800797C2A /* map.c */,
 				90922A4B221D429600F1E1F4 /* mark.c */,
+				95241CF525749CC7001E3711 /* match.c */,
 				90922A7C221D429A00F1E1F4 /* mbyte.c */,
 				90922AB2221D429C00F1E1F4 /* memfile_test.c */,
 				90922A51221D429600F1E1F4 /* memfile.c */,
@@ -760,6 +767,7 @@
 				90922A63221D429800F1E1F4 /* message.c */,
 				90922AA2221D429C00F1E1F4 /* misc1.c */,
 				90922A3B221D429500F1E1F4 /* misc2.c */,
+				901C07152430C8CC00797C2A /* mouse.c */,
 				90922AA6221D429C00F1E1F4 /* move.c */,
 				90922A4A221D429600F1E1F4 /* nbdebug.c */,
 				90922A5E221D429700F1E1F4 /* nbdebug.h */,
@@ -768,25 +776,36 @@
 				90922A73221D429900F1E1F4 /* ops.c */,
 				90922A83221D429A00F1E1F4 /* option.c */,
 				90922AB1221D429C00F1E1F4 /* option.h */,
+				901C07162430C8CD00797C2A /* optiondefs.h */,
+				901C07172430C8CD00797C2A /* optionstr.c */,
 				90922AAF221D429C00F1E1F4 /* os_mac_conv.c */,
 				90922A5D221D429700F1E1F4 /* os_mac.h */,
+				95241CFB25749D4A001E3711 /* os_macosx.m */,
 				90922AA7221D429C00F1E1F4 /* os_unix.c */,
 				90922A8C221D429B00F1E1F4 /* os_unix.h */,
-				90922A8F221D429B00F1E1F4 /* popupmnu.c */,
+				901C06FF2430C8CA00797C2A /* popupmenu.c */,
+				901C07022430C8CA00797C2A /* popupwin.c */,
+				901C070B2430C8CB00797C2A /* profiler.c */,
 				90922A6E221D429900F1E1F4 /* proto.h */,
 				90922A68221D429800F1E1F4 /* protodef.h */,
 				90922A47221D429600F1E1F4 /* pty.c */,
 				90922A94221D429B00F1E1F4 /* quickfix.c */,
+				901C07142430C8CC00797C2A /* regexp_bt.c */,
 				90922A90221D429B00F1E1F4 /* regexp_nfa.c */,
 				90922AB7221D429D00F1E1F4 /* regexp.c */,
 				90922A92221D429B00F1E1F4 /* regexp.h */,
+				901C07062430C8CB00797C2A /* register.c */,
 				90922A9D221D429C00F1E1F4 /* screen.c */,
+				901C07052430C8CB00797C2A /* scriptfile.c */,
 				90922A7E221D429A00F1E1F4 /* search.c */,
+				901C071A2430C8CD00797C2A /* session.c */,
 				90922A9C221D429C00F1E1F4 /* sha256.c */,
 				90922AAC221D429C00F1E1F4 /* sign.c */,
+				901C070D2430C8CC00797C2A /* sound.c */,
 				90922AA8221D429C00F1E1F4 /* spell.c */,
 				90922A7B221D429A00F1E1F4 /* spell.h */,
 				90922AB3221D429C00F1E1F4 /* spellfile.c */,
+				901C07092430C8CB00797C2A /* spellsuggest.c */,
 				90922AB5221D429D00F1E1F4 /* structs.h */,
 				90922A97221D429B00F1E1F4 /* syntax.c */,
 				90922A60221D429800F1E1F4 /* tag.c */,
@@ -794,20 +813,28 @@
 				90922ABA221D429D00F1E1F4 /* term.h */,
 				90922AB9221D429D00F1E1F4 /* terminal.c */,
 				90922A64221D429800F1E1F4 /* termlib.c */,
+				901C06F72430C8C900797C2A /* testing.c */,
+				95241CF425749CC7001E3711 /* textformat.c */,
+				95241CFA25749CC7001E3711 /* textobject.c */,
 				90922A91221D429B00F1E1F4 /* textprop.c */,
+				901C06F62430C8C900797C2A /* time.c */,
+				95241CF725749CC7001E3711 /* typval.c */,
 				90922A76221D429900F1E1F4 /* ui.c */,
 				90922A7F221D429A00F1E1F4 /* undo.c */,
-				90922A98221D429B00F1E1F4 /* uninstal.c */,
+				901C07132430C8CC00797C2A /* uninstall.c */,
+				901C07012430C8CA00797C2A /* usercmd.c */,
 				90922A5C221D429700F1E1F4 /* userfunc.c */,
 				90922AB8221D429D00F1E1F4 /* version.c */,
 				90922A3D221D429500F1E1F4 /* version.h */,
 				90922A96221D429B00F1E1F4 /* vim.h */,
-				90922A9A221D429C00F1E1F4 /* vimio.h */,
+				901C070E2430C8CC00797C2A /* vim9.h */,
+				901C070C2430C8CB00797C2A /* vim9compile.c */,
+				901C07072430C8CB00797C2A /* vim9execute.c */,
+				901C07102430C8CC00797C2A /* vim9script.c */,
+				95241CF025749CC6001E3711 /* vim9type.c */,
+				901C07182430C8CD00797C2A /* viminfo.c */,
 				90922A81221D429A00F1E1F4 /* vimrun.c */,
-				90922A75221D429900F1E1F4 /* winclip.c */,
 				90922AAA221D429C00F1E1F4 /* window.c */,
-				90922A61221D429800F1E1F4 /* xpm_w32.c */,
-				90922AA5221D429C00F1E1F4 /* xpm_w32.h */,
 			);
 			name = "Vim Source";
 			sourceTree = "<group>";
@@ -836,9 +863,11 @@
 				1D9EB2840C366D7B0074B739 /* Copy Frameworks */,
 				52818B021C1C088000F59085 /* Copy QuickLookPlugin */,
 				1DE608B80C58807F0055263D /* Copy Vim Runtime Files */,
+				90BD4EF224E0E8B700BF29F2 /* Copy locale message translation files */,
 				1D1C31F00EFFBFD6003FE9A5 /* Make Document Icons */,
 				528DA6671426D456003380F1 /* Copy Scripts */,
 				52283AB71EBA200C00A6F6B9 /* Copy mvim scripts */,
+				90C052E1251E889500E2D81E /* Copy vimtutor */,
 			);
 			buildRules = (
 			);
@@ -861,15 +890,33 @@
 				LastUpgradeCheck = 0710;
 			};
 			buildConfigurationList = C01FCF4E08A954540054247B /* Build configuration list for PBXProject "MacVim" */;
-			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			compatibilityVersion = "Xcode 6.3";
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
-				Swedish,
+				Base,
+				"zh-Hant",
+				"zh-Hans",
+				ja,
+				ko,
+				ca,
+				cs,
+				da,
+				de,
+				es,
+				fi,
+				fr,
+				hu,
+				it,
+				nl,
+				nb,
+				pl,
+				"pt-BR",
+				"pt-PT",
+				ru,
+				sv,
+				tr,
+				en,
 			);
 			mainGroup = 29B97314FDCFA39411CA2CEA /* MacVim */;
 			projectDirPath = "";
@@ -913,13 +960,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				52B7ED9B1C4A4D6900AFFF15 /* dsa_pub.pem in Resources */,
-				8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */,
 				8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */,
 				1D0E051C0BA5F83800B6049E /* Colors.plist in Resources */,
 				1DD04DEC0C529C5E006CDC2B /* Credits.rtf in Resources */,
 				1DE8CC620C5E2AAD003F56E3 /* Actions.plist in Resources */,
 				1DD9F5E50C85D60500E8D5A5 /* SystemColors.plist in Resources */,
-				1DE3F8E70D50F80500052B9E /* Preferences.nib in Resources */,
 				0395A8AA0D72D88B00881434 /* General.png in Resources */,
 				1DD3D51E0D82D4C9006E4320 /* ibeam.png in Resources */,
 				1D22374B0E45DF4800E6FFFF /* Advanced.png in Resources */,
@@ -944,9 +989,11 @@
 				1DCD00D10E50B2B700460166 /* SaveSesn.png in Resources */,
 				1DCD00D20E50B2B700460166 /* TagJump.png in Resources */,
 				1DCD00D30E50B2B700460166 /* Undo.png in Resources */,
-				1D8BEA74104992290069B072 /* FindAndReplace.nib in Resources */,
 				1D9C60520EF79C0C0034AD44 /* MacVim.icns in Resources */,
 				1D384A0E100D671700D3C22F /* KeyBinding.plist in Resources */,
+				907FF7542521BDA600BADACB /* Preferences.xib in Resources */,
+				907FF7512521BCE200BADACB /* MainMenu.xib in Resources */,
+				907FF7572521BDC300BADACB /* FindAndReplace.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -981,6 +1028,45 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "BINPATH=$BUILT_PRODUCTS_DIR/$CONTENTS_FOLDER_PATH/bin\nmkdir -p \"${BINPATH}\"\ncp -a \"${SRCROOT}/mvim\" \"${BINPATH}/mvim\"\nchmod 755 \"${BINPATH}/mvim\"\n(cd \"${BINPATH}\"; for f in vim vimdiff view gvim gvimdiff gview mvimdiff mview; do ln -fs mvim $f; done)\n";
+			showEnvVarsInLog = 0;
+		};
+		90BD4EF224E0E8B700BF29F2 /* Copy locale message translation files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy locale message translation files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Copy all the locale translation files from the po folder to\n# runtime/lang/<lang>/LC_MESSAGES/vim.mo. Need to do this because unlike normal\n# Vim, MacVim is distributed as a standalone app package and therefore we don't\n# want to install these files to a global location (e.g.\n# /usr/local/share/locale/). This is similar to how Windows installation\n# (po/Make_mvc.mak) works.\ncd \"${SRCROOT}\"/..\nmake macvim-install-languages DEST_LANG=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/vim/runtime/lang\"\n";
+			showEnvVarsInLog = 0;
+		};
+		90C052E1251E889500E2D81E /* Copy vimtutor */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy vimtutor";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "BINPATH=$BUILT_PRODUCTS_DIR/$CONTENTS_FOLDER_PATH/bin\nmkdir -p \"${BINPATH}\"\ncp -a \"${SRCROOT}/../vimtutor\" \"${BINPATH}/vimtutor\"\ncp -a \"${SRCROOT}/../gvimtutor\" \"${BINPATH}/gvimtutor\"\nchmod 755 \"${BINPATH}/vimtutor\"\nchmod 755 \"${BINPATH}/gvimtutor\"\ncd \"${BINPATH}\"\nln -fs gvimtutor mvimtutor \n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -1031,33 +1117,54 @@
 		089C165CFE840E0CC02AAC07 /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				089C165DFE840E0CC02AAC07 /* English */,
+				95241CE12573D587001E3711 /* en */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
-		1D8BEA73104992290069B072 /* FindAndReplace.nib */ = {
+		907FF74F2521BCE200BADACB /* MainMenu.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				1D6008820E96886D003763F0 /* English */,
+				907FF75C2521C0A000BADACB /* Base */,
+				907FF7622521C2FB00BADACB /* zh-Hant */,
+				907FF7632521CBAC00BADACB /* zh-Hans */,
+				907FF7642521CBC500BADACB /* ja */,
+				90F84F1E2521F2270000268B /* ko */,
+				90F84F232521F6480000268B /* ca */,
+				90F84F242521F6590000268B /* cs */,
+				90F84F252521F6670000268B /* da */,
+				90F84F262521F69A0000268B /* de */,
+				90F84F272521F6A70000268B /* es */,
+				90F84F282521F6B10000268B /* fi */,
+				90F84F292521F6C10000268B /* fr */,
+				90F84F2A2521F6CB0000268B /* hu */,
+				90F84F2B2521F6D60000268B /* it */,
+				90F84F2C2521F6E30000268B /* nl */,
+				90F84F2D2521F7FC0000268B /* nb */,
+				90F84F2E2521F8550000268B /* pl */,
+				90F84F2F2521F8600000268B /* pt-BR */,
+				90F84F302521F8690000268B /* pt-PT */,
+				90F84F312521F8760000268B /* ru */,
+				90F84F322521F87F0000268B /* sv */,
+				90F84F332521F8880000268B /* tr */,
 			);
-			name = FindAndReplace.nib;
+			name = MainMenu.xib;
 			sourceTree = "<group>";
 		};
-		1DE3F8E50D50F80500052B9E /* Preferences.nib */ = {
+		907FF7522521BDA600BADACB /* Preferences.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				1DE3F8E60D50F80500052B9E /* English */,
+				907FF75B2521C09F00BADACB /* Base */,
 			);
-			name = Preferences.nib;
+			name = Preferences.xib;
 			sourceTree = "<group>";
 		};
-		29B97318FDCFA39411CA2CEA /* MainMenu.nib */ = {
+		907FF7552521BDC200BADACB /* FindAndReplace.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				29B97319FDCFA39411CA2CEA /* English */,
+				907FF75A2521C09F00BADACB /* Base */,
 			);
-			name = MainMenu.nib;
+			name = FindAndReplace.xib;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -1130,6 +1237,8 @@
 		C01FCF4F08A954540054247B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_VERSION = 4.2;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1143,6 +1252,8 @@
 		C01FCF5008A954540054247B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				GCC_VERSION = 4.2;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;

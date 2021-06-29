@@ -1,5 +1,6 @@
 /* option.c */
 void set_init_1(int clean_arg);
+void set_fencs_unicode(void);
 void set_string_default(char *name, char_u *val);
 void set_number_default(char *name, long val);
 void set_local_options_default(win_T *wp, int do_buffer);
@@ -14,7 +15,6 @@ void did_set_option(int opt_idx, int opt_flags, int new_value, int value_checked
 int string_to_key(char_u *arg, int multi_byte);
 void did_set_title(void);
 void set_options_bin(int oldval, int newval, int opt_flags);
-int check_fuoptions(char_u *p_fuoptions, unsigned *flags, int *bgcolor);
 void check_options(void);
 int get_term_opt_idx(char_u **p);
 int set_term_option_alloced(char_u **p);
@@ -25,7 +25,7 @@ void set_option_sctx_idx(int opt_idx, int opt_flags, sctx_T script_ctx);
 void set_term_option_sctx_idx(char *name, int opt_idx);
 void check_redraw(long_u flags);
 int findoption(char_u *arg);
-int get_option_value(char_u *name, long *numval, char_u **stringval, int opt_flags);
+getoption_T get_option_value(char_u *name, long *numval, char_u **stringval, int opt_flags);
 int get_option_value_strict(char_u *name, long *numval, char_u **stringval, int opt_type, void *from);
 char_u *option_iter_next(void **option, int opt_type);
 long_u get_option_flags(int opt_idx);
@@ -63,7 +63,6 @@ void set_imsearch_global(void);
 void set_context_in_set_cmd(expand_T *xp, char_u *arg, int opt_flags);
 int ExpandSettings(expand_T *xp, regmatch_T *regmatch, int *num_file, char_u ***file);
 int ExpandOldSetting(int *num_file, char_u ***file);
-int has_format_option(int x);
 int shortmess(int x);
 void vimrc_found(char_u *fname, char_u *envname);
 void change_compatible(int on);
@@ -77,4 +76,5 @@ unsigned int get_bkc_value(buf_T *buf);
 char_u *get_showbreak_value(win_T *win);
 dict_T *get_winbuf_options(int bufopt);
 int fill_culopt_flags(char_u *val, win_T *wp);
+int magic_isset(void);
 /* vim: set ft=c : */

@@ -32,7 +32,9 @@ extern NSString *MMBaselineOffsetKey;
 extern NSString *MMTranslateCtrlClickKey;
 extern NSString *MMTopLeftPointKey;
 extern NSString *MMOpenInCurrentWindowKey;
-extern NSString *MMNoFontSubstitutionKey;
+extern NSString *MMNoFontSubstitutionKey; // Deprecated: Non-CoreText renderer
+extern NSString *MMFontPreserveLineSpacingKey;
+extern NSString *MMAppearanceModeSelectionKey;
 extern NSString *MMNoTitleBarWindowKey;
 extern NSString *MMTitlebarAppearsTransparentKey;
 extern NSString *MMDisableLaunchAnimation;
@@ -54,8 +56,7 @@ extern NSString *MMSuppressTerminationAlertKey;
 extern NSString *MMNativeFullScreenKey;
 extern NSString *MMUseMouseTimeKey;
 extern NSString *MMFullScreenFadeTimeKey;
-extern NSString *MMUseCGLayerAlwaysKey;
-extern NSString *MMBufferedDrawingKey;
+extern NSString *MMNonNativeFullScreenShowMenuKey;
 
 
 // Enum for MMUntitledWindowKey
@@ -82,6 +83,13 @@ enum {
     MMTerminateWhenLastWindowClosed = 2,
 };
 
+// Enum for MMAppearanceModeSelectionKey
+enum MMAppearanceModeSelectionEnum {
+    MMAppearanceModeSelectionAuto = 0,
+    MMAppearanceModeSelectionLight = 1,
+    MMAppearanceModeSelectionDark = 2,
+    MMAppearanceModeSelectionBackgroundOption = 3,
+};
 
 
 enum {
@@ -118,6 +126,7 @@ enum {
 - (NSMenu *)findApplicationMenu;
 - (NSMenu *)findServicesMenu;
 - (NSMenu *)findFileMenu;
+- (NSMenu *)findHelpMenu;
 @end
 
 
@@ -159,6 +168,5 @@ NSArray *normalizeFilenames(NSArray *filenames);
 
 BOOL shouldUseYosemiteTabBarStyle();
 BOOL shouldUseMojaveTabBarStyle();
-BOOL shouldUseBufferedDrawing();
 
 int getCurrentAppearance(NSAppearance *appearance);

@@ -56,7 +56,7 @@ static int disable_flush = 0;	// If > 0, gui_mch_flush() is disabled.
  * this makes the thumb indicate the part of the text that is shown.  Motif
  * can't do this.
  */
-#if defined(FEAT_GUI_ATHENA) || defined(FEAT_GUI_MAC)
+#if defined(FEAT_GUI_ATHENA)
 # define SCROLL_PAST_END
 #endif
 
@@ -513,6 +513,9 @@ gui_init(void)
 	 */
 	set_option_value((char_u *)"paste", 0L, NULL, 0);
 
+	// Set t_Co to the number of colors: RGB.
+	set_color_count(256 * 256 * 256);
+
 	/*
 	 * Set up system-wide default menus.
 	 */
@@ -809,6 +812,13 @@ gui_init(void)
 	    gui_mch_disable_beval_area(balloonEval);
 #endif
 
+#if !defined(FEAT_GUI_MSWIN) && !defined(FEAT_GUI_MACVIM)
+	// In the GUI modifiers are prepended to keys.
+	// Don't do this for MS-Windows yet, it sends CTRL-K without the
+	// modifier.
+	seenModifyOtherKeys = TRUE;
+#endif
+
 #if defined(FEAT_XIM) && defined(FEAT_GUI_GTK)
 	if (!im_xim_isvalid_imactivate())
 	    emsg(_("E599: Value of 'imactivatekey' is invalid"));
@@ -844,8 +854,8 @@ gui_exit(int rc)
 }
 
 #if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_X11) || defined(FEAT_GUI_MSWIN) \
-	|| defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MAC) \
-        || defined(PROTO) || defined(FEAT_GUI_MACVIM)
+	|| defined(FEAT_GUI_MACVIM) \
+	|| defined(FEAT_GUI_PHOTON) || defined(PROTO)
 # define NEED_GUI_UPDATE_SCREEN 1
 /*
  * Called when the GUI shell is closed by the user.  If there are no changed
@@ -856,17 +866,18 @@ gui_exit(int rc)
     void
 gui_shell_closed(void)
 {
-    cmdmod_T	    save_cmdmod;
+    cmdmod_T	    save_cmdmod = cmdmod;
 
-    save_cmdmod = cmdmod;
+    if (before_quit_autocmds(curwin, TRUE, FALSE))
+	return;
 
     // Only exit when there are no changed files
     exiting = TRUE;
 # ifdef FEAT_BROWSE
-    cmdmod.browse = TRUE;
+    cmdmod.cmod_flags |= CMOD_BROWSE;
 # endif
 # if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG)
-    cmdmod.confirm = TRUE;
+    cmdmod.cmod_flags |= CMOD_CONFIRM;
 # endif
     // If there are changed buffers, present the user with a dialog if
     // possible, otherwise give an error message.
@@ -915,14 +926,14 @@ gui_init_font(char_u *font_list, int fontset UNUSED)
 		(void)copy_option_part(&font_list, font_name, FONTLEN, ",");
 
 #if defined(FEAT_GUI_MACVIM)
-                // The font dialog is modeless in Mac OS X, so when
-                // gui_mch_init_font() is called with "*" it brings up the
-                // dialog and returns immediately.  In this case we don't want
-                // it to be called again with NULL, so return here.
-                if (STRCMP(font_name, "*") == 0) {
-                    gui_mch_init_font(font_name, FALSE);
-                    return FALSE;
-                }
+		// The font dialog is modeless in Mac OS X, so when
+		// gui_mch_init_font() is called with "*" it brings up the
+		// dialog and returns immediately.  In this case we don't want
+		// it to be called again with NULL, so return here.
+		if (STRCMP(font_name, "*") == 0) {
+		    gui_mch_init_font(font_name, FALSE);
+		    return FALSE;
+		}
 #endif
 		// Careful!!!  The Win32 version of gui_mch_init_font(), when
 		// called with "*" will change p_guifont to the selected font
@@ -1129,6 +1140,11 @@ gui_update_cursor(
 		    || gui.row != gui.cursor_row || gui.col != gui.cursor_col)
     {
 	gui_undraw_cursor();
+
+	// If a cursor-less sleep is ongoing, leave the cursor invisible
+	if (cursor_is_sleeping())
+	    return;
+
 	if (gui.row < 0)
 	    return;
 #ifdef HAVE_INPUT_METHOD
@@ -1388,7 +1404,7 @@ gui_position_components(int total_width UNUSED)
 #endif
 
 # if defined(FEAT_GUI_TABLINE) && (defined(FEAT_GUI_MSWIN) \
-	|| defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_MAC))
+	|| defined(FEAT_GUI_MOTIF))
     if (gui_has_tabline())
 	text_area_y += gui.tabline_height;
 #endif
@@ -1429,11 +1445,13 @@ gui_position_components(int total_width UNUSED)
     if (gui.which_scrollbars[SBAR_BOTTOM])
 	gui_mch_set_scrollbar_pos(&gui.bottom_sbar,
 				  text_area_x,
-				  text_area_y + text_area_height,
+				  text_area_y + text_area_height
+					+ gui_mch_get_scrollbar_ypadding(),
 				  text_area_width,
 				  gui.scrollbar_height);
     gui.left_sbar_x = 0;
-    gui.right_sbar_x = text_area_x + text_area_width;
+    gui.right_sbar_x = text_area_x + text_area_width
+					+ gui_mch_get_scrollbar_xpadding();
 
     --hold_gui_events;
 }
@@ -2431,21 +2449,13 @@ gui_outstr_nowrap(
 
     if (highlight_mask & (HL_INVERSE | HL_STANDOUT))
     {
-#if defined(AMIGA)
-	gui_mch_set_colors(bg_color, fg_color);
-#else
 	gui_mch_set_fg_color(bg_color);
 	gui_mch_set_bg_color(fg_color);
-#endif
     }
     else
     {
-#if defined(AMIGA)
-	gui_mch_set_colors(fg_color, bg_color);
-#else
 	gui_mch_set_fg_color(fg_color);
 	gui_mch_set_bg_color(bg_color);
-#endif
     }
     gui_mch_set_sp_color(sp_color);
 
@@ -3095,6 +3105,9 @@ gui_send_mouse_event(
      */
     switch (button)
     {
+	case MOUSE_MOVE:
+	    button_char = KE_MOUSEMOVE_XY;
+	    goto button_set;
 	case MOUSE_X1:
 	    button_char = KE_X1MOUSE;
 	    goto button_set;
@@ -4778,7 +4791,7 @@ gui_get_color(char_u *name)
 	    && gui.in_use
 #endif
 	    )
-	semsg(_("E254: Cannot allocate color %s"), name);
+	semsg(_(e_alloc_color), name);
     return t;
 }
 
@@ -4955,7 +4968,7 @@ gui_mouse_moved(int x, int y)
     if (popup_visible)
 	// Generate a mouse-moved event, so that the popup can perhaps be
 	// closed, just like in the terminal.
-	gui_send_mouse_event(MOUSE_DRAG, x, y, FALSE, 0);
+	gui_send_mouse_event(MOUSE_MOVE, x, y, FALSE, 0);
 #endif
 }
 
@@ -5084,7 +5097,7 @@ ex_gui(exarg_T *eap)
 	// of the argument ending up after the shell prompt.
 	msg_clr_eos_force();
 #ifdef GUI_MAY_SPAWN
-	if (!ends_excmd(*eap->arg))
+	if (!ends_excmd2(eap->cmd, eap->arg))
 	    gui_start(eap->arg);
 	else
 #endif
@@ -5093,7 +5106,7 @@ ex_gui(exarg_T *eap)
 	channel_gui_register_all();
 #endif
     }
-    if (!ends_excmd(*eap->arg))
+    if (!ends_excmd2(eap->cmd, eap->arg))
 	ex_next(eap);
 }
 
@@ -5156,7 +5169,8 @@ gui_find_iconfile(char_u *name, char_u *buffer, char *ext)
 # endif
 #endif
 
-#if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_X11) || defined(PROTO)
+#if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_X11)|| defined(FEAT_GUI_HAIKU) \
+	|| defined(PROTO)
     void
 display_errors(void)
 {
@@ -5605,6 +5619,7 @@ gui_handle_drop(
 	{
 	    vim_free(fnames[0]);
 	    vim_free(fnames);
+	    vim_free(p);
 	}
 	else
 	    handle_drop(count, fnames, (modifiers & MOUSE_CTRL) != 0,
@@ -5614,3 +5629,27 @@ gui_handle_drop(
     entered = FALSE;
 }
 #endif
+
+/*
+ * Check if "key" is to interrupt us.  Handles a key that has not had modifiers
+ * applied yet.
+ * Return the key with modifiers applied if so, NUL if not.
+ */
+    int
+check_for_interrupt(int key, int modifiers_arg)
+{
+    int modifiers = modifiers_arg;
+    int c = merge_modifyOtherKeys(key, &modifiers);
+
+    if ((c == Ctrl_C && ctrl_c_interrupts)
+#ifdef UNIX
+	    || (intr_char != Ctrl_C && c == intr_char)
+#endif
+	    )
+    {
+	got_int = TRUE;
+	return c;
+    }
+    return NUL;
+}
+

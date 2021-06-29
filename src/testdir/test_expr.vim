@@ -1,5 +1,7 @@
 " Tests for expressions.
 
+source check.vim
+
 func Test_equal()
   let base = {}
   func base.method()
@@ -20,6 +22,9 @@ func Test_equal()
   call assert_false([base.method] == [instance.other])
 
   call assert_fails('echo base.method > instance.method')
+  call assert_equal(0, test_null_function() == function('min'))
+  call assert_equal(1, test_null_function() == test_null_function())
+  call assert_fails('eval 10 == test_unknown()', 'E685:')
 endfunc
 
 func Test_version()
@@ -37,6 +42,38 @@ func Test_version()
   call assert_false(has('patch-9.9.1'))
 endfunc
 
+func Test_op_trinary()
+  call assert_equal('yes', 1 ? 'yes' : 'no')
+  call assert_equal('no', 0 ? 'yes' : 'no')
+  call assert_equal('no', 'x' ? 'yes' : 'no')
+  call assert_equal('yes', '1x' ? 'yes' : 'no')
+
+  call assert_fails('echo [1] ? "yes" : "no"', 'E745:')
+  call assert_fails('echo {} ? "yes" : "no"', 'E728:')
+endfunc
+
+func Test_op_falsy()
+  call assert_equal(v:true, v:true ?? 456)
+  call assert_equal(123, 123 ?? 456)
+  call assert_equal('yes', 'yes' ?? 456)
+  call assert_equal(0z00, 0z00 ?? 456)
+  call assert_equal([1], [1] ?? 456)
+  call assert_equal(#{one: 1}, #{one: 1} ?? 456)
+  if has('float')
+    call assert_equal(0.1, 0.1 ?? 456)
+  endif
+
+  call assert_equal(456, v:false ?? 456)
+  call assert_equal(456, 0 ?? 456)
+  call assert_equal(456, '' ?? 456)
+  call assert_equal(456, 0z ?? 456)
+  call assert_equal(456, [] ?? 456)
+  call assert_equal(456, {} ?? 456)
+  if has('float')
+    call assert_equal(456, 0.0 ?? 456)
+  endif
+endfunc
+
 func Test_dict()
   let d = {'': 'empty', 'a': 'a', 0: 'zero'}
   call assert_equal('empty', d[''])
@@ -44,11 +81,15 @@ func Test_dict()
   call assert_equal('zero', d[0])
   call assert_true(has_key(d, ''))
   call assert_true(has_key(d, 'a'))
+  call assert_fails("let i = has_key([], 'a')", 'E715:')
 
   let d[''] = 'none'
   let d['a'] = 'aaa'
   call assert_equal('none', d[''])
   call assert_equal('aaa', d['a'])
+
+  let d[ 'b' ] = 'bbb'
+  call assert_equal('bbb', d[ 'b' ])
 endfunc
 
 func Test_strgetchar()
@@ -86,6 +127,7 @@ func Test_getreg_empty_list()
   let y = x
   call add(x, 'foo')
   call assert_equal(['foo'], y)
+  call assert_fails('call getreg([])', 'E730:')
 endfunc
 
 func Test_loop_over_null_list()
@@ -95,20 +137,20 @@ func Test_loop_over_null_list()
   endfor
 endfunc
 
-func Test_compare_null_dict()
-  call assert_fails('let x = test_null_dict()[10]')
-  call assert_equal({}, {})
-  call assert_equal(test_null_dict(), test_null_dict())
-  call assert_notequal({}, test_null_dict())
-endfunc
-
-func Test_set_reg_null_list()
+func Test_setreg_null_list()
   call setreg('x', test_null_list())
 endfunc
 
 func Test_special_char()
   " The failure is only visible using valgrind.
   call assert_fails('echo "\<C-">')
+endfunc
+
+func Test_method_with_prefix()
+  call assert_equal(1, !range(5)->empty())
+  call assert_equal([0, 1, 2], --3->range())
+  call assert_equal(0, !-3)
+  call assert_equal(1, !+-+0)
 endfunc
 
 func Test_option_value()
@@ -373,8 +415,10 @@ function Test_printf_errors()
   call assert_fails('echo printf("%d", [])', 'E745:')
   call assert_fails('echo printf("%d", 1, 2)', 'E767:')
   call assert_fails('echo printf("%*d", 1)', 'E766:')
+  call assert_fails('echo printf("%s")', 'E766:')
   if has('float')
     call assert_fails('echo printf("%d", 1.2)', 'E805:')
+    call assert_fails('echo printf("%f")')
   endif
 endfunc
 
@@ -429,52 +473,6 @@ function Test_printf_spec_b()
   call assert_equal("1111111111111111111111111111111111111111111111111111111111111111", printf('%b', -1))
 endfunc
 
-func Test_substitute_expr()
-  let g:val = 'XXX'
-  call assert_equal('XXX', substitute('yyy', 'y*', '\=g:val', ''))
-  call assert_equal('XXX', substitute('yyy', 'y*', {-> g:val}, ''))
-  call assert_equal("-\u1b \uf2-", substitute("-%1b %f2-", '%\(\x\x\)',
-			   \ '\=nr2char("0x" . submatch(1))', 'g'))
-  call assert_equal("-\u1b \uf2-", substitute("-%1b %f2-", '%\(\x\x\)',
-			   \ {-> nr2char("0x" . submatch(1))}, 'g'))
-
-  call assert_equal('231', substitute('123', '\(.\)\(.\)\(.\)',
-	\ {-> submatch(2) . submatch(3) . submatch(1)}, ''))
-
-  func Recurse()
-    return substitute('yyy', 'y\(.\)y', {-> submatch(1)}, '')
-  endfunc
-  " recursive call works
-  call assert_equal('-y-x-', substitute('xxx', 'x\(.\)x', {-> '-' . Recurse() . '-' . submatch(1) . '-'}, ''))
-
-  call assert_fails("let s=submatch([])", 'E745:')
-  call assert_fails("let s=submatch(2, [])", 'E745:')
-endfunc
-
-func Test_invalid_submatch()
-  " This was causing invalid memory access in Vim-7.4.2232 and older
-  call assert_fails("call substitute('x', '.', {-> submatch(10)}, '')", 'E935:')
-endfunc
-
-func Test_substitute_expr_arg()
-  call assert_equal('123456789-123456789=', substitute('123456789',
-	\ '\(.\)\(.\)\(.\)\(.\)\(.\)\(.\)\(.\)\(.\)\(.\)',
-	\ {m -> m[0] . '-' . m[1] . m[2] . m[3] . m[4] . m[5] . m[6] . m[7] . m[8] . m[9] . '='}, ''))
-
-  call assert_equal('123456-123456=789', substitute('123456789',
-	\ '\(.\)\(.\)\(.\)\(a*\)\(n*\)\(.\)\(.\)\(.\)\(x*\)',
-	\ {m -> m[0] . '-' . m[1] . m[2] . m[3] . m[4] . m[5] . m[6] . m[7] . m[8] . m[9] . '='}, ''))
-
-  call assert_equal('123456789-123456789x=', substitute('123456789',
-	\ '\(.\)\(.\)\(.*\)',
-	\ {m -> m[0] . '-' . m[1] . m[2] . m[3] . 'x' . m[4] . m[5] . m[6] . m[7] . m[8] . m[9] . '='}, ''))
-
-  call assert_fails("call substitute('xxx', '.', {m -> string(add(m, 'x'))}, '')", 'E742:')
-  call assert_fails("call substitute('xxx', '.', {m -> string(insert(m, 'x'))}, '')", 'E742:')
-  call assert_fails("call substitute('xxx', '.', {m -> string(extend(m, ['x']))}, '')", 'E742:')
-  call assert_fails("call substitute('xxx', '.', {m -> string(remove(m, 1))}, '')", 'E742:')
-endfunc
-
 func Test_function_with_funcref()
   let s:f = function('type')
   let s:fref = function(s:f)
@@ -516,6 +514,7 @@ func Test_setmatches()
   endif
   eval set->setmatches()
   call assert_equal(exp, getmatches())
+  call assert_fails('let m = setmatches([], [])', 'E745:')
 endfunc
 
 func Test_empty_concatenate()
@@ -545,9 +544,7 @@ endfunc
 
 " Test for command-line completion of expressions
 func Test_expr_completion()
-  if !has('cmdline_compl')
-    return
-  endif
+  CheckFeature cmdline_compl
   for cmd in [
 	\ 'let a = ',
 	\ 'const a = ',
@@ -631,6 +628,31 @@ func Test_expr_eval_error()
   call assert_fails("let v = 10 + []", 'E745:')
   call assert_fails("let v = 10 / []", 'E745:')
   call assert_fails("let v = -{}", 'E728:')
+endfunc
+
+func Test_white_in_function_call()
+  let text = substitute ( 'some text' , 't' , 'T' , 'g' )
+  call assert_equal('some TexT', text)
+endfunc
+
+" Test for float value comparison
+func Test_float_compare()
+  CheckFeature float
+  call assert_true(1.2 == 1.2)
+  call assert_true(1.0 != 1.2)
+  call assert_true(1.2 > 1.0)
+  call assert_true(1.2 >= 1.2)
+  call assert_true(1.0 < 1.2)
+  call assert_true(1.2 <= 1.2)
+  call assert_true(+0.0 == -0.0)
+  " two NaNs (not a number) are not equal
+  call assert_true(sqrt(-4.01) != (0.0 / 0.0))
+  " two inf (infinity) are equal
+  call assert_true((1.0 / 0) == (2.0 / 0))
+  " two -inf (infinity) are equal
+  call assert_true(-(1.0 / 0) == -(2.0 / 0))
+  " +infinity != -infinity
+  call assert_true((1.0 / 0) != -(2.0 / 0))
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

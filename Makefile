@@ -32,7 +32,7 @@ first:
 
 # Some make programs use the last target for the $@ default; put the other
 # targets separately to always let $@ expand to "first" by default.
-all install uninstall tools config configure reconfig proto depend lint tags types test scripttests test_libvterm unittests testclean clean distclean:
+all install uninstall tools config configure reconfig proto depend lint tags types test scripttests testtiny test_libvterm unittests testclean clean distclean:
 	@if test ! -f src/auto/config.mk; then \
 		cp src/config.mk.dist src/auto/config.mk; \
 	fi
@@ -94,7 +94,7 @@ MINOR = 2
 #   src/Makefile, README.txt, README.md, src/README.md, READMEdir/README*.txt,
 #   runtime/doc/*.txt and make nsis/gvim_version.nsh.
 #   For a minor/major version: src/GvimExt/GvimExt.reg, src/vim.def,
-#   src/gvim.exe.mnf.
+#   src/vim.manifest.
 # - Compile Vim with GTK, Perl, Python, Python3, TCL, Ruby, Lua, Cscope and
 #   "huge" features.  Add MZscheme if you can make it work.
 #   Use "make reconfig" after selecting the configure arguments.

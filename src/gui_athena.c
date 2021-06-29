@@ -469,7 +469,7 @@ get_toolbar_pixmap(vimmenu_T *menu, Pixmap *sen)
     if (menu->icon_builtin || gui_find_bitmap(menu->name, buf, "xpm") == FAIL)
     {
 	if (menu->iconidx >= 0 && menu->iconidx
-	      < (int)(sizeof(built_in_pixmaps) / sizeof(built_in_pixmaps[0])))
+	      < (int)ARRAY_LENGTH(built_in_pixmaps))
 	    xpm = built_in_pixmaps[menu->iconidx];
 	else
 	    xpm = tb_blank_xpm;
@@ -1887,6 +1887,22 @@ gui_mch_set_scrollbar_pos(
 		  XtNheight, h,
 		  NULL);
     XtManageChild(sb->id);
+}
+
+    int
+gui_mch_get_scrollbar_xpadding(void)
+{
+    // TODO: Calculate the padding for adjust scrollbar position when the
+    // Window is maximized.
+    return 0;
+}
+
+    int
+gui_mch_get_scrollbar_ypadding(void)
+{
+    // TODO: Calculate the padding for adjust scrollbar position when the
+    // Window is maximized.
+    return 0;
 }
 
     void

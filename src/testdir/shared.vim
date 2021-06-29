@@ -21,6 +21,8 @@ func PythonProg()
     let s:python = 'python'
   elseif has('win32')
     " Use Python Launcher for Windows (py.exe) if available.
+    " NOTE: if you get a "Python was not found" error, disable the Python
+    " shortcuts in "Windows menu / Settings / Manage App Execution Aliases".
     if executable('py.exe')
       let s:python = 'py.exe'
     elseif executable('python.exe')
@@ -36,6 +38,9 @@ endfunc
 
 " Run "cmd".  Returns the job if using a job.
 func RunCommand(cmd)
+  " Running an external command can occasionally be slow or fail.
+  let g:test_is_flaky = 1
+
   let job = 0
   if has('job')
     let job = job_start(a:cmd, {"stoponexit": "hup"})
@@ -220,7 +225,7 @@ func s:feedkeys(timer)
   call feedkeys('x', 'nt')
 endfunc
 
-" Get $VIMPROG to run Vim executable.
+" Get $VIMPROG to run the Vim executable.
 " The Makefile writes it as the first line in the "vimcmd" file.
 func GetVimProg()
   if !filereadable('vimcmd')
@@ -265,7 +270,7 @@ func GetVimCommand(...)
 
   " If using valgrind, make sure every run uses a different log file.
   if cmd =~ 'valgrind.*--log-file='
-    let cmd = substitute(cmd, '--log-file=\(^\s*\)', '--log-file=\1.' . g:valgrind_cnt, '')
+    let cmd = substitute(cmd, '--log-file=\(\S*\)', '--log-file=\1.' . g:valgrind_cnt, '')
     let g:valgrind_cnt += 1
   endif
 
@@ -336,6 +341,33 @@ func IsRoot()
     return v:true
   endif
   return v:false
+endfunc
+
+" Get all messages but drop the maintainer entry.
+func GetMessages()
+  redir => result
+  redraw | messages
+  redir END
+  let msg_list = split(result, "\n")
+  if msg_list->len() > 0 && msg_list[0] =~ 'Messages maintainer:'
+    return msg_list[1:]
+  endif
+  return msg_list
+endfunc
+
+" Run the list of commands in 'cmds' and look for 'errstr' in exception.
+" Note that assert_fails() cannot be used in some places and this function
+" can be used.
+func AssertException(cmds, errstr)
+  let save_exception = ''
+  try
+    for cmd in a:cmds
+      exe cmd
+    endfor
+  catch
+    let save_exception = v:exception
+  endtry
+  call assert_match(a:errstr, save_exception)
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

@@ -1,5 +1,7 @@
 " Tests for various Visual modes.
 
+source shared.vim
+
 func Test_block_shift_multibyte()
   " Uses double-wide character.
   split
@@ -79,12 +81,11 @@ func Test_visual_mode_reset()
   " thus preventing the problem:
   exe "normal! GV:call TriggerTheProblem()\<CR>"
   call assert_equal("Everything's fine.", g:msg)
-
 endfunc
 
 " Test for visual block shift and tab characters.
 func Test_block_shift_tab()
-  enew!
+  new
   call append(0, repeat(['one two three'], 5))
   call cursor(1,1)
   exe "normal i\<C-G>u"
@@ -93,7 +94,7 @@ func Test_block_shift_tab()
   call assert_equal('on1 two three', getline(2))
   call assert_equal('on1 two three', getline(5))
 
-  enew!
+  %d _
   call append(0, repeat(['abcdefghijklmnopqrstuvwxyz'], 5))
   call cursor(1,1)
   exe "normal \<C-V>4jI    \<Esc>j<<11|D"
@@ -118,12 +119,26 @@ func Test_block_shift_tab()
   call assert_equal("    abc\<Tab>\<Tab>defghijklmnopqrstuvwxyz", getline(4))
   call assert_equal("    abc\<Tab>    defghijklmnopqrstuvwxyz", getline(5))
 
-  enew!
+  " Test for block shift with space characters at the beginning and with
+  " 'noexpandtab' and 'expandtab'
+  %d _
+  call setline(1, ["      1", "      2", "      3"])
+  setlocal shiftwidth=2 noexpandtab
+  exe "normal gg\<C-V>3j>"
+  call assert_equal(["\t1", "\t2", "\t3"], getline(1, '$'))
+  %d _
+  call setline(1, ["      1", "      2", "      3"])
+  setlocal shiftwidth=2 expandtab
+  exe "normal gg\<C-V>3j>"
+  call assert_equal(["        1", "        2", "        3"], getline(1, '$'))
+  setlocal shiftwidth&
+
+  bw!
 endfunc
 
 " Tests Blockwise Visual when there are TABs before the text.
 func Test_blockwise_visual()
-  enew!
+  new
   call append(0, ['123456',
 	      \ '234567',
 	      \ '345678',
@@ -145,12 +160,12 @@ func Test_blockwise_visual()
 	      \ "\t\tsomext",
 	      \ "\t\ttesext"], getline(1, 7))
 
-  enew!
+  bw!
 endfunc
 
 " Test swapping corners in blockwise visual mode with o and O
 func Test_blockwise_visual_o_O()
-  enew!
+  new
 
   exe "norm! 10i.\<Esc>Y4P3lj\<C-V>4l2jr "
   exe "norm! gvO\<Esc>ra"
@@ -169,7 +184,7 @@ func Test_blockwise_visual_o_O()
         \            '...a   bf.',
         \            '..........'], getline(1, '$'))
 
-  enew!
+  bw!
 endfun
 
 " Test Virtual replace mode.
@@ -208,6 +223,15 @@ func Test_virtual_replace()
   exe "normal iabcdefghijklmnopqrst\<Esc>0gRAB\tIJKLMNO\tQR"
   call assert_equal(['AB......CDEFGHI.Jkl',
 	      \ 'AB	IJKLMNO	QRst'], getline(12, 13))
+
+  " Test inserting Tab with 'noexpandtab' and 'softabstop' set to 4
+  %d
+  call setline(1, 'aaaaaaaaaaaaa')
+  set softtabstop=4
+  exe "normal gggR\<Tab>\<Tab>x"
+  call assert_equal("\txaaaa", getline(1))
+  set softtabstop&
+
   enew!
   set noai bs&vim
   if exists('save_t_kD')
@@ -361,14 +385,17 @@ endfunc
 
 func Test_Visual_paragraph_textobject()
   new
-  call setline(1, ['First line.',
-  \                '',
-  \                'Second line.',
-  \                'Third line.',
-  \                'Fourth line.',
-  \                'Fifth line.',
-  \                '',
-  \                'Sixth line.'])
+  let lines =<< trim [END]
+    First line.
+
+    Second line.
+    Third line.
+    Fourth line.
+    Fifth line.
+
+    Sixth line.
+  [END]
+  call setline(1, lines)
 
   " When start and end of visual area are identical, 'ap' or 'ip' select
   " the whole paragraph.
@@ -445,15 +472,13 @@ endfunc
 
 " Test for 'p'ut in visual block mode
 func Test_visual_block_put()
-  enew
-
+  new
   call append(0, ['One', 'Two', 'Three'])
   normal gg
   yank
   call feedkeys("jl\<C-V>ljp", 'xt')
   call assert_equal(['One', 'T', 'Tee', 'One', ''], getline(1, '$'))
-
-  enew!
+  bw!
 endfunc
 
 " Visual modes (v V CTRL-V) followed by an operator; count; repeating
@@ -624,6 +649,20 @@ func Test_characterwise_visual_mode()
   normal Gkvj$d
   call assert_equal(['', 'a', ''], getline(1, '$'))
 
+  " characterwise visual mode: use a count with the visual mode from the last
+  " line in the buffer
+  %d _
+  call setline(1, ['one', 'two', 'three', 'four'])
+  norm! vj$y
+  norm! G1vy
+  call assert_equal('four', @")
+
+  " characterwise visual mode: replace a single character line and the eol
+  %d _
+  call setline(1, "a")
+  normal v$rx
+  call assert_equal(['x'], getline(1, '$'))
+
   bwipe!
 endfunc
 
@@ -719,7 +758,172 @@ func Test_visual_block_mode()
   exe "normal! \<C-V>j2lD"
   call assert_equal(['ax', 'ax'], getline(3, 4))
 
+  " Test block insert with a short line that ends before the block
+  %d _
+  call setline(1, ["  one", "a", "  two"])
+  exe "normal gg\<C-V>2jIx"
+  call assert_equal(["  xone", "a", "  xtwo"], getline(1, '$'))
+
+  " Test block append at EOL with '$' and without '$'
+  %d _
+  call setline(1, ["one", "a", "two"])
+  exe "normal gg$\<C-V>2jAx"
+  call assert_equal(["onex", "ax", "twox"], getline(1, '$'))
+  %d _
+  call setline(1, ["one", "a", "two"])
+  exe "normal gg3l\<C-V>2jAx"
+  call assert_equal(["onex", "a  x", "twox"], getline(1, '$'))
+
+  " Test block replace with an empty line in the middle and use $ to jump to
+  " the end of the line.
+  %d _
+  call setline(1, ['one', '', 'two'])
+  exe "normal gg$\<C-V>2jrx"
+  call assert_equal(["onx", "", "twx"], getline(1, '$'))
+
+  " Test block replace with an empty line in the middle and move cursor to the
+  " end of the line
+  %d _
+  call setline(1, ['one', '', 'two'])
+  exe "normal gg2l\<C-V>2jrx"
+  call assert_equal(["onx", "", "twx"], getline(1, '$'))
+
+  " Replace odd number of characters with a multibyte character
+  %d _
+  call setline(1, ['abcd', 'efgh'])
+  exe "normal ggl\<C-V>2ljr\u1100"
+  call assert_equal(["a\u1100 ", "e\u1100 "], getline(1, '$'))
+
+  " During visual block append, if the cursor moved outside of the selected
+  " range, then the edit should not be applied to the block.
+  %d _
+  call setline(1, ['aaa', 'bbb', 'ccc'])
+  exe "normal 2G\<C-V>jAx\<Up>"
+  call assert_equal(['aaa', 'bxbb', 'ccc'], getline(1, '$'))
+
+  " During visual block append, if the cursor is moved before the start of the
+  " block, then the new text should be appended there.
+  %d _
+  call setline(1, ['aaa', 'bbb', 'ccc'])
+  exe "normal $\<C-V>2jA\<Left>x"
+  " BUG: Instead of adding x as the third character in all the three lines,
+  " 'a' is added in the second and third lines at the end. This bug is not
+  " reproducible if this operation is performed manually.
+  "call assert_equal(['aaxa', 'bbxb', 'ccxc'], getline(1, '$'))
+  call assert_equal(['aaxa', 'bbba', 'ccca'], getline(1, '$'))
+  " Repeat the previous test but use 'l' to move the cursor instead of '$'
+  call setline(1, ['aaa', 'bbb', 'ccc'])
+  exe "normal! gg2l\<C-V>2jA\<Left>x"
+  call assert_equal(['aaxa', 'bbxb', 'ccxc'], getline(1, '$'))
+
+  " Change a characterwise motion to a blockwise motion using CTRL-V
+  %d _
+  call setline(1, ['123', '456', '789'])
+  exe "normal ld\<C-V>j"
+  call assert_equal(['13', '46', '789'], getline(1, '$'))
+
+  " Test from ':help v_b_I_example'
+  %d _
+  setlocal tabstop=8 shiftwidth=4
+  let lines =<< trim END
+    abcdefghijklmnopqrstuvwxyz
+    abc		defghijklmnopqrstuvwxyz
+    abcdef  ghi		jklmnopqrstuvwxyz
+    abcdefghijklmnopqrstuvwxyz
+  END
+  call setline(1, lines)
+  exe "normal ggfo\<C-V>3jISTRING"
+  let expected =<< trim END
+    abcdefghijklmnSTRINGopqrstuvwxyz
+    abc	      STRING  defghijklmnopqrstuvwxyz
+    abcdef  ghi   STRING  	jklmnopqrstuvwxyz
+    abcdefghijklmnSTRINGopqrstuvwxyz
+  END
+  call assert_equal(expected, getline(1, '$'))
+
+  " Test from ':help v_b_A_example'
+  %d _
+  let lines =<< trim END
+    abcdefghijklmnopqrstuvwxyz
+    abc		defghijklmnopqrstuvwxyz
+    abcdef  ghi		jklmnopqrstuvwxyz
+    abcdefghijklmnopqrstuvwxyz
+  END
+  call setline(1, lines)
+  exe "normal ggfo\<C-V>3j$ASTRING"
+  let expected =<< trim END
+    abcdefghijklmnopqrstuvwxyzSTRING
+    abc		defghijklmnopqrstuvwxyzSTRING
+    abcdef  ghi		jklmnopqrstuvwxyzSTRING
+    abcdefghijklmnopqrstuvwxyzSTRING
+  END
+  call assert_equal(expected, getline(1, '$'))
+
+  " Test from ':help v_b_<_example'
+  %d _
+  let lines =<< trim END
+    abcdefghijklmnopqrstuvwxyz
+    abc		defghijklmnopqrstuvwxyz
+    abcdef  ghi		jklmnopqrstuvwxyz
+    abcdefghijklmnopqrstuvwxyz
+  END
+  call setline(1, lines)
+  exe "normal ggfo\<C-V>3j3l<.."
+  let expected =<< trim END
+    abcdefghijklmnopqrstuvwxyz
+    abc	      defghijklmnopqrstuvwxyz
+    abcdef  ghi   jklmnopqrstuvwxyz
+    abcdefghijklmnopqrstuvwxyz
+  END
+  call assert_equal(expected, getline(1, '$'))
+
+  " Test from ':help v_b_>_example'
+  %d _
+  let lines =<< trim END
+    abcdefghijklmnopqrstuvwxyz
+    abc		defghijklmnopqrstuvwxyz
+    abcdef  ghi		jklmnopqrstuvwxyz
+    abcdefghijklmnopqrstuvwxyz
+  END
+  call setline(1, lines)
+  exe "normal ggfo\<C-V>3j>.."
+  let expected =<< trim END
+    abcdefghijklmn		  opqrstuvwxyz
+    abc			    defghijklmnopqrstuvwxyz
+    abcdef  ghi			    jklmnopqrstuvwxyz
+    abcdefghijklmn		  opqrstuvwxyz
+  END
+  call assert_equal(expected, getline(1, '$'))
+
+  " Test from ':help v_b_r_example'
+  %d _
+  let lines =<< trim END
+    abcdefghijklmnopqrstuvwxyz
+    abc		defghijklmnopqrstuvwxyz
+    abcdef  ghi		jklmnopqrstuvwxyz
+    abcdefghijklmnopqrstuvwxyz
+  END
+  call setline(1, lines)
+  exe "normal ggfo\<C-V>5l3jrX"
+  let expected =<< trim END
+    abcdefghijklmnXXXXXXuvwxyz
+    abc	      XXXXXXhijklmnopqrstuvwxyz
+    abcdef  ghi   XXXXXX    jklmnopqrstuvwxyz
+    abcdefghijklmnXXXXXXuvwxyz
+  END
+  call assert_equal(expected, getline(1, '$'))
+
   bwipe!
+  set tabstop& shiftwidth&
+endfunc
+
+func Test_visual_force_motion_feedkeys()
+    onoremap <expr> i- execute('let g:mode = mode(1)')->slice(0, 0)
+    call feedkeys('dvi-', 'x')
+    call assert_equal('nov', g:mode)
+    call feedkeys('di-', 'x')
+    call assert_equal('no', g:mode)
+    ounmap i-
 endfunc
 
 " Test block-insert using cursor keys for movement
@@ -879,15 +1083,147 @@ func Test_exclusive_selection()
   close!
 endfunc
 
-" Test for starting visual mode with a count.
-" This test should be run without any previous visual modes. So this should be
-" run as a first test.
-func Test_AAA_start_visual_mode_with_count()
+" Test for starting linewise visual with a count.
+" This test needs to be run without any previous visual mode. Otherwise the
+" count will use the count from the previous visual mode.
+func Test_linewise_visual_with_count()
+  let after =<< trim [CODE]
+    call setline(1, ['one', 'two', 'three', 'four'])
+    norm! 3Vy
+    call assert_equal("one\ntwo\nthree\n", @")
+    call writefile(v:errors, 'Xtestout')
+    qall!
+  [CODE]
+  if RunVim([], after, '')
+    call assert_equal([], readfile('Xtestout'))
+    call delete('Xtestout')
+  endif
+endfunc
+
+" Test for starting characterwise visual with a count.
+" This test needs to be run without any previous visual mode. Otherwise the
+" count will use the count from the previous visual mode.
+func Test_characterwise_visual_with_count()
+  let after =<< trim [CODE]
+    call setline(1, ['one two', 'three'])
+    norm! l5vy
+    call assert_equal("ne tw", @")
+    call writefile(v:errors, 'Xtestout')
+    qall!
+  [CODE]
+  if RunVim([], after, '')
+    call assert_equal([], readfile('Xtestout'))
+    call delete('Xtestout')
+  endif
+endfunc
+
+" Test for visually selecting an inner block (iB)
+func Test_visual_inner_block()
   new
-  call setline(1, ['aaaaaaa', 'aaaaaaa', 'aaaaaaa', 'aaaaaaa'])
-  normal! gg2Vy
-  call assert_equal("aaaaaaa\naaaaaaa\n", @")
+  call setline(1, ['one', '{', 'two', '{', 'three', '}', 'four', '}', 'five'])
+  call cursor(5, 1)
+  " visually select all the lines in the block and then execute iB
+  call feedkeys("ViB\<C-C>", 'xt')
+  call assert_equal([0, 5, 1, 0], getpos("'<"))
+  call assert_equal([0, 5, 6, 0], getpos("'>"))
+  " visually select two inner blocks
+  call feedkeys("ViBiB\<C-C>", 'xt')
+  call assert_equal([0, 3, 1, 0], getpos("'<"))
+  call assert_equal([0, 7, 5, 0], getpos("'>"))
+  " try to select non-existing inner block
+  call cursor(5, 1)
+  call assert_beeps('normal ViBiBiB')
+  " try to select a unclosed inner block
+  8,9d
+  call cursor(5, 1)
+  call assert_beeps('normal ViBiB')
   close!
 endfunc
+
+func Test_visual_put_in_block()
+  new
+  call setline(1, ['xxxx', 'y∞yy', 'zzzz'])
+  normal 1G2yl
+  exe "normal 1G2l\<C-V>jjlp"
+  call assert_equal(['xxxx', 'y∞xx', 'zzxx'], getline(1, 3))
+  bwipe!
+endfunc
+
+func Test_visual_put_in_block_using_zp()
+  new
+  " paste using zP
+  call setline(1, ['/path;text', '/path;text', '/path;text', '', 
+    \ '/subdir', 
+    \ '/longsubdir',
+    \ '/longlongsubdir'])
+  exe "normal! 5G\<c-v>2j$y"
+  norm! 1Gf;zP
+  call assert_equal(['/path/subdir;text', '/path/longsubdir;text', '/path/longlongsubdir;text'], getline(1, 3))
+  %d
+  " paste using zP
+  call setline(1, ['/path;text', '/path;text', '/path;text', '', 
+    \ '/subdir', 
+    \ '/longsubdir',
+    \ '/longlongsubdir'])
+  exe "normal! 5G\<c-v>2j$y"
+  norm! 1Gf;hzp
+  call assert_equal(['/path/subdir;text', '/path/longsubdir;text', '/path/longlongsubdir;text'], getline(1, 3))
+  bwipe!
+endfunc
+
+func Test_visual_put_in_block_using_zy_and_zp()
+  new
+
+  " Test 1) Paste using zp - after the cursor without trailing spaces
+  call setline(1, ['/path;text', '/path;text', '/path;text', '', 
+    \ 'texttext  /subdir           columntext',
+		\ 'texttext  /longsubdir       columntext',
+    \ 'texttext  /longlongsubdir   columntext'])
+  exe "normal! 5G0f/\<c-v>2jezy"
+  norm! 1G0f;hzp
+  call assert_equal(['/path/subdir;text', '/path/longsubdir;text', '/path/longlongsubdir;text'], getline(1, 3))
+
+  " Test 2) Paste using zP - in front of the cursor without trailing spaces
+  %d
+  call setline(1, ['/path;text', '/path;text', '/path;text', '', 
+    \ 'texttext  /subdir           columntext',
+		\ 'texttext  /longsubdir       columntext',
+    \ 'texttext  /longlongsubdir   columntext'])
+  exe "normal! 5G0f/\<c-v>2jezy"
+  norm! 1G0f;zP
+  call assert_equal(['/path/subdir;text', '/path/longsubdir;text', '/path/longlongsubdir;text'], getline(1, 3))
+
+  " Test 3) Paste using p - with trailing spaces
+  %d
+  call setline(1, ['/path;text', '/path;text', '/path;text', '', 
+    \ 'texttext  /subdir           columntext',
+		\ 'texttext  /longsubdir       columntext',
+    \ 'texttext  /longlongsubdir   columntext'])
+  exe "normal! 5G0f/\<c-v>2jezy"
+  norm! 1G0f;hp
+  call assert_equal(['/path/subdir        ;text', '/path/longsubdir    ;text', '/path/longlongsubdir;text'], getline(1, 3))
+
+  " Test 4) Paste using P - with trailing spaces
+  %d
+  call setline(1, ['/path;text', '/path;text', '/path;text', '', 
+    \ 'texttext  /subdir           columntext',
+		\ 'texttext  /longsubdir       columntext',
+    \ 'texttext  /longlongsubdir   columntext'])
+  exe "normal! 5G0f/\<c-v>2jezy"
+  norm! 1G0f;P
+  call assert_equal(['/path/subdir        ;text', '/path/longsubdir    ;text', '/path/longlongsubdir;text'], getline(1, 3))
+
+  " Test 5) Yank with spaces inside the block
+  %d
+  call setline(1, ['/path;text', '/path;text', '/path;text', '', 
+    \ 'texttext  /sub    dir/           columntext',
+    \ 'texttext  /lon    gsubdir/       columntext',
+    \ 'texttext  /lon    glongsubdir/   columntext'])
+  exe "normal! 5G0f/\<c-v>2jf/zy"
+  norm! 1G0f;zP
+  call assert_equal(['/path/sub    dir/;text', '/path/lon    gsubdir/;text', '/path/lon    glongsubdir/;text'], getline(1, 3))
+  bwipe!
+endfunc
+
 
 " vim: shiftwidth=2 sts=2 expandtab

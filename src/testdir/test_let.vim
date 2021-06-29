@@ -81,6 +81,24 @@ func Test_let()
   let l:Test_Local_Var = {'k' : 5}
   call assert_match("\nl:Test_Local_Var      {'k': 5}", execute('let l:'))
   call assert_match("v:errors              []", execute('let v:'))
+
+  " Test for assigning multiple list items
+  let l = [1, 2, 3]
+  let [l[0], l[1]] = [10, 20]
+  call assert_equal([10, 20, 3], l)
+
+  " Test for errors in conditional expression
+  call assert_fails('let val = [] ? 1 : 2', 'E745:')
+  call assert_fails('let val = 1 ? 5+ : 6', 'E121:')
+  call assert_fails('let val = 1 ? 0 : 5+', 'E15:')
+  call assert_false(exists('val'))
+
+  " Test for errors in logical operators
+  let @a = 'if [] || 0 | let val = 2 | endif'
+  call assert_fails('exe @a', 'E745:')
+  call assert_fails('call feedkeys(":let val = 0 || []\<cr>", "xt")', 'E745:')
+  call assert_fails('exe "let val = [] && 5"', 'E745:')
+  call assert_fails('exe "let val = 6 && []"', 'E745:')
 endfunc
 
 func s:set_arg1(a) abort
@@ -232,23 +250,23 @@ func Test_let_termcap()
     let &t_k1 = old_t_k1
   endif
 
-  call assert_fails('let x = &t_xx', 'E113')
+  call assert_fails('let x = &t_xx', 'E113:')
   let &t_xx = "yes"
   call assert_equal("yes", &t_xx)
   let &t_xx = ""
-  call assert_fails('let x = &t_xx', 'E113')
+  call assert_fails('let x = &t_xx', 'E113:')
 endfunc
 
 func Test_let_option_error()
   let _w = &tw
   let &tw = 80
-  call assert_fails('let &tw .= 1', 'E734')
+  call assert_fails('let &tw .= 1', 'E734:')
   call assert_equal(80, &tw)
   let &tw = _w
 
   let _w = &fillchars
   let &fillchars = "vert:|"
-  call assert_fails('let &fillchars += "diff:-"', 'E734')
+  call assert_fails('let &fillchars += "diff:-"', 'E734:')
   call assert_equal("vert:|", &fillchars)
   let &fillchars = _w
 endfunc
@@ -261,7 +279,7 @@ func Test_let_errors()
   let l = [1, 2, 3]
   call assert_fails('let l[:] = 5', 'E709:')
 
-  call assert_fails('let x:lnum=5', 'E488:')
+  call assert_fails('let x:lnum=5', ['E121:', 'E488:'])
   call assert_fails('let v:=5', 'E461:')
   call assert_fails('let [a]', 'E474:')
   call assert_fails('let [a, b] = [', 'E697:')
@@ -274,18 +292,29 @@ func Test_let_errors()
   call assert_fails('let &buftype[1] = "nofile"', 'E18:')
   let s = "var"
   let var = 1
-  call assert_fails('let {s}.1 = 2', 'E18:')
+  call assert_fails('let var += [1,2]', 'E734:')
+  call assert_fails('let {s}.1 = 2', 'E1203:')
   call assert_fails('let a[1] = 5', 'E121:')
   let l = [[1,2]]
   call assert_fails('let l[:][0] = [5]', 'E708:')
   let d = {'k' : 4}
-  call assert_fails('let d.# = 5', 'E713:')
-  call assert_fails('let d.m += 5', 'E734:')
+  call assert_fails('let d.# = 5', 'E488:')
+  call assert_fails('let d.m += 5', 'E716:')
+  call assert_fails('let m = d[{]', 'E15:')
   let l = [1, 2]
   call assert_fails('let l[2] = 0', 'E684:')
   call assert_fails('let l[0:1] = [1, 2, 3]', 'E710:')
   call assert_fails('let l[-2:-3] = [3, 4]', 'E684:')
   call assert_fails('let l[0:4] = [5, 6]', 'E711:')
+  call assert_fails('let l -= 2', 'E734:')
+  call assert_fails('let l += 2', 'E734:')
+  call assert_fails('let g:["a;b"] = 10', 'E461:')
+  call assert_fails('let g:.min = function("max")', 'E704:')
+  if has('channel')
+    let ch = test_null_channel()
+    call assert_fails('let ch += 1', 'E734:')
+  endif
+  call assert_fails('let name = "a" .. "b",', 'E488: Trailing characters: ,')
 
   " This test works only when the language is English
   if v:lang == "C" || v:lang =~ '^[Ee]n'
@@ -310,7 +339,7 @@ func Test_let_heredoc_fails()
   endfunc
   END
   call writefile(text, 'XheredocFail')
-  call assert_fails('source XheredocFail', 'E126:')
+  call assert_fails('source XheredocFail', 'E1145:')
   call delete('XheredocFail')
 
   let text =<< trim CodeEnd
@@ -319,7 +348,7 @@ func Test_let_heredoc_fails()
   endfunc
   CodeEnd
   call writefile(text, 'XheredocWrong')
-  call assert_fails('source XheredocWrong', 'E126:')
+  call assert_fails('source XheredocWrong', 'E1145:')
   call delete('XheredocWrong')
 
   let text =<< trim TEXTend

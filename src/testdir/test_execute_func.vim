@@ -2,6 +2,7 @@
 
 source view_util.vim
 source check.vim
+source vim9.vim
 
 func NestedEval()
   let nested = execute('echo "nested\nlines"')
@@ -37,8 +38,9 @@ func Test_execute_string()
   call assert_equal("\nsomething", execute('echo "something"', 'silent!'))
   call assert_equal("", execute('burp', 'silent!'))
   if has('float')
-    call assert_fails('call execute(3.4)', 'E806:')
-    call assert_fails('call execute("echo \"x\"", 3.4)', 'E806:')
+    call assert_fails('call execute(3.4)', 'E492:')
+    call assert_equal("\nx", execute("echo \"x\"", 3.4))
+    call CheckDefExecAndScriptFailure2(['execute("echo \"x\"", 3.4)'], 'E1013: Argument 2: type mismatch, expected string but got float', 'E806:')
   endif
 endfunc
 
@@ -89,6 +91,8 @@ func Test_win_execute()
   call win_gotoid(thiswin)
   let line = win_execute(otherwin, 'echo getline(1)')
   call assert_match('the new window', line)
+  let line = win_execute(134343, 'echo getline(1)')
+  call assert_equal('', line)
 
   if has('popupwin')
     let popupwin = popup_create('the popup win', {'line': 2, 'col': 3})
@@ -132,7 +136,7 @@ func Test_win_execute_other_tab()
   unlet xyz
 endfunc
 
-func Test_execute_null()
+func Test_execute_func_with_null()
   call assert_equal("", execute(test_null_string()))
   call assert_equal("", execute(test_null_list()))
   call assert_fails('call execute(test_null_dict())', 'E731:')
@@ -143,3 +147,5 @@ func Test_execute_null()
     call assert_fails('call execute(test_null_channel())', 'E908:')
   endif
 endfunc
+
+" vim: shiftwidth=2 sts=2 expandtab

@@ -471,9 +471,19 @@ spell_suggest(int count)
     int		selected = count;
     int		badlen = 0;
     int		msg_scroll_save = msg_scroll;
+    int		wo_spell_save = curwin->w_p_spell;
 
-    if (no_spell_checking(curwin))
+    if (!curwin->w_p_spell)
+    {
+	did_set_spelllang(curwin);
+	curwin->w_p_spell = TRUE;
+    }
+
+    if (*curwin->w_s->b_p_spl == NUL)
+    {
+	emsg(_(e_no_spell));
 	return;
+    }
 
     if (VIsual_active)
     {
@@ -666,8 +676,6 @@ spell_suggest(int count)
 	    mch_memmove(p, line, c);
 	    STRCPY(p + c, stp->st_word);
 	    STRCAT(p, sug.su_badptr + stp->st_orglen);
-	    ml_replace(curwin->w_cursor.lnum, p, FALSE);
-	    curwin->w_cursor.col = c;
 
 	    // For redo we use a change-word command.
 	    ResetRedobuff();
@@ -676,7 +684,10 @@ spell_suggest(int count)
 			    stp->st_wordlen + sug.su_badlen - stp->st_orglen);
 	    AppendCharToRedobuff(ESC);
 
-	    // After this "p" may be invalid.
+	    // "p" may be freed here
+	    ml_replace(curwin->w_cursor.lnum, p, FALSE);
+	    curwin->w_cursor.col = c;
+
 	    changed_bytes(curwin->w_cursor.lnum, c);
 	}
     }
@@ -686,6 +697,7 @@ spell_suggest(int count)
     spell_find_cleanup(&sug);
 skip:
     vim_free(line);
+    curwin->w_p_spell = wo_spell_save;
 }
 
 /*
@@ -758,9 +770,10 @@ spell_find_suggest(
     int		c;
     int		i;
     langp_T	*lp;
+    int		did_intern = FALSE;
 
     // Set the info in "*su".
-    vim_memset(su, 0, sizeof(suginfo_T));
+    CLEAR_POINTER(su);
     ga_init2(&su->su_ga, (int)sizeof(suggest_T), 10);
     ga_init2(&su->su_sga, (int)sizeof(suggest_T), 10);
     if (*badptr == NUL)
@@ -778,7 +791,7 @@ spell_find_suggest(
     if (su->su_badlen >= MAXWLEN)
 	su->su_badlen = MAXWLEN - 1;	// just in case
     vim_strncpy(su->su_badword, su->su_badptr, su->su_badlen);
-    (void)spell_casefold(su->su_badptr, su->su_badlen,
+    (void)spell_casefold(curwin, su->su_badptr, su->su_badlen,
 						    su->su_fbadword, MAXWLEN);
     // TODO: make this work if the case-folded text is longer than the original
     // text. Currently an illegal byte causes wrong pointer computations.
@@ -851,12 +864,13 @@ spell_find_suggest(
 	else if (STRNCMP(buf, "file:", 5) == 0)
 	    // Use list of suggestions in a file.
 	    spell_suggest_file(su, buf + 5);
-	else
+	else if (!did_intern)
 	{
-	    // Use internal method.
+	    // Use internal method once.
 	    spell_suggest_intern(su, interactive);
 	    if (sps_flags & SPS_DOUBLE)
 		do_combine = TRUE;
+	    did_intern = TRUE;
 	}
     }
 
@@ -1162,7 +1176,7 @@ suggest_try_change(suginfo_T *su)
     STRCPY(fword, su->su_fbadword);
     n = (int)STRLEN(fword);
     p = su->su_badptr + su->su_badlen;
-    (void)spell_casefold(p, (int)STRLEN(p), fword + n, MAXWLEN - n);
+    (void)spell_casefold(curwin, p, (int)STRLEN(p), fword + n, MAXWLEN - n);
 
     for (lpi = 0; lpi < curwin->w_s->b_langp.ga_len; ++lpi)
     {
@@ -1266,7 +1280,7 @@ suggest_trie_walk(
     // word).
     depth = 0;
     sp = &stack[0];
-    vim_memset(sp, 0, sizeof(trystate_T));
+    CLEAR_POINTER(sp);
     sp->ts_curi = 1;
 
     if (soundfold)
@@ -1394,7 +1408,8 @@ suggest_trie_walk(
 	    tword[sp->ts_twordlen] = NUL;
 
 	    if (sp->ts_prefixdepth <= PFD_NOTSPECIAL
-					&& (sp->ts_flags & TSF_PREFIXOK) == 0)
+					&& (sp->ts_flags & TSF_PREFIXOK) == 0
+					&& pbyts != NULL)
 	    {
 		// There was a prefix before the word.  Check that the prefix
 		// can be used with this word.
@@ -2990,7 +3005,8 @@ stp_sal_score(
     else
     {
 	// soundfold the bad word with more characters following
-	(void)spell_casefold(su->su_badptr, stp->st_orglen, fword, MAXWLEN);
+	(void)spell_casefold(curwin,
+				su->su_badptr, stp->st_orglen, fword, MAXWLEN);
 
 	// When joining two words the sound often changes a lot.  E.g., "t he"
 	// sounds like "t h" while "the" sounds like "@".  Avoid that by
@@ -3593,6 +3609,8 @@ check_suggestions(
     int		len;
     hlf_T	attr;
 
+    if (gap->ga_len == 0)
+	return;
     stp = &SUG(*gap, 0);
     for (i = gap->ga_len - 1; i >= 0; --i)
     {
@@ -3716,9 +3734,6 @@ cleanup_suggestions(
     int		maxscore,
     int		keep)		// nr of suggestions to keep
 {
-    suggest_T   *stp = &SUG(*gap, 0);
-    int		i;
-
     if (gap->ga_len > 0)
     {
 	// Sort the list.
@@ -3729,6 +3744,9 @@ cleanup_suggestions(
 	// displayed.
 	if (gap->ga_len > keep)
 	{
+	    int		i;
+	    suggest_T   *stp = &SUG(*gap, 0);
+
 	    for (i = keep; i < gap->ga_len; ++i)
 		vim_free(stp[i].st_word);
 	    gap->ga_len = keep;

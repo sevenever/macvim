@@ -302,7 +302,7 @@ prop_add_common(
 	if (length < 0)
 	    length = 0;		// zero-width property
 
-	// Allocate the new line with space for the new proprety.
+	// Allocate the new line with space for the new property.
 	newtext = alloc(buf->b_ml.ml_line_len + sizeof(textprop_T));
 	if (newtext == NULL)
 	    return;
@@ -345,7 +345,8 @@ prop_add_common(
     }
 
     buf->b_has_textprop = TRUE;  // this is never reset
-    redraw_buf_later(buf, NOT_VALID);
+    changed_lines_buf(buf, start_lnum, end_lnum + 1, 0);
+    redraw_buf_later(buf, VALID);
 }
 
 /*
@@ -380,6 +381,30 @@ get_text_props(buf_T *buf, linenr_T lnum, char_u **props, int will_change)
     return (int)(proplen / sizeof(textprop_T));
 }
 
+/**
+ * Return the number of text properties on line "lnum" in the current buffer.
+ * When "only_starting" is true only text properties starting in this line will
+ * be considered.
+ */
+    int
+count_props(linenr_T lnum, int only_starting)
+{
+    char_u	*props;
+    int		proplen = get_text_props(curbuf, lnum, &props, 0);
+    int		result = proplen;
+    int		i;
+    textprop_T	prop;
+
+    if (only_starting)
+	for (i = 0; i < proplen; ++i)
+	{
+	    mch_memmove(&prop, props + i * sizeof(prop), sizeof(prop));
+	    if (prop.tp_flags & TP_FLAG_CONT_PREV)
+		--result;
+	}
+    return result;
+}
+
 /*
  * Find text property "type_id" in the visible lines of window "wp".
  * Match "id" when it is > 0.
@@ -395,7 +420,7 @@ find_visible_prop(win_T *wp, int type_id, int id, textprop_T *prop,
     int			i;
 
     // w_botline may not have been updated yet.
-    validate_botline();
+    validate_botline_win(wp);
     for (lnum = wp->w_topline; lnum < wp->w_botline; ++lnum)
     {
 	count = get_text_props(wp->w_buffer, lnum, &props, FALSE);
@@ -511,6 +536,7 @@ f_prop_clear(typval_T *argvars, typval_T *rettv UNUSED)
     linenr_T end = start;
     linenr_T lnum;
     buf_T    *buf = curbuf;
+    int	    did_clear = FALSE;
 
     if (argvars[1].v_type != VAR_UNKNOWN)
     {
@@ -523,7 +549,7 @@ f_prop_clear(typval_T *argvars, typval_T *rettv UNUSED)
     }
     if (start < 1 || end < 1)
     {
-	emsg(_(e_invrange));
+	emsg(_(e_invalid_range));
 	return;
     }
 
@@ -538,6 +564,7 @@ f_prop_clear(typval_T *argvars, typval_T *rettv UNUSED)
 	len = STRLEN(text) + 1;
 	if ((size_t)buf->b_ml.ml_line_len > len)
 	{
+	    did_clear = TRUE;
 	    if (!(buf->b_ml.ml_flags & ML_LINE_DIRTY))
 	    {
 		char_u *newtext = vim_strsave(text);
@@ -551,7 +578,8 @@ f_prop_clear(typval_T *argvars, typval_T *rettv UNUSED)
 	    buf->b_ml.ml_line_len = (int)len;
 	}
     }
-    redraw_buf_later(buf, NOT_VALID);
+    if (did_clear)
+	redraw_buf_later(buf, NOT_VALID);
 }
 
 /*
@@ -564,15 +592,16 @@ f_prop_find(typval_T *argvars, typval_T *rettv)
     dict_T      *dict;
     buf_T       *buf = curbuf;
     dictitem_T  *di;
-    int         lnum_start;
-    int         start_pos_has_prop = 0;
-    int         seen_end = 0;
-    int         id = -1;
-    int         type_id = -1;
-    int         skipstart = 0;
-    int         lnum = -1;
-    int         col = -1;
-    int         dir = 1;    // 1 = forward, -1 = backward
+    int		lnum_start;
+    int		start_pos_has_prop = 0;
+    int		seen_end = 0;
+    int		id = -1;
+    int		type_id = -1;
+    int		skipstart = 0;
+    int		lnum = -1;
+    int		col = -1;
+    int		dir = 1;    // 1 = forward, -1 = backward
+    int		both;
 
     if (argvars[0].v_type != VAR_DICT || argvars[0].vval.v_dict == NULL)
     {
@@ -617,13 +646,11 @@ f_prop_find(typval_T *argvars, typval_T *rettv)
 
     if (lnum < 1 || lnum > buf->b_ml.ml_line_count)
     {
-	emsg(_(e_invrange));
+	emsg(_(e_invalid_range));
 	return;
     }
 
-    di = dict_find(dict, (char_u *)"skipstart", -1);
-    if (di != NULL)
-	skipstart = tv_get_number(&di->di_tv);
+    skipstart = dict_get_bool(dict, (char_u *)"skipstart", 0);
 
     if (dict_find(dict, (char_u *)"id", -1) != NULL)
 	id = dict_get_number(dict, (char_u *)"id");
@@ -636,9 +663,15 @@ f_prop_find(typval_T *argvars, typval_T *rettv)
 	    return;
 	type_id = type->pt_id;
     }
+    both = dict_get_bool(dict, (char_u *)"both", FALSE);
     if (id == -1 && type_id == -1)
     {
 	emsg(_("E968: Need at least one of 'id' or 'type'"));
+	return;
+    }
+    if (both && (id == -1 || type_id == -1))
+    {
+	emsg(_("E860: Need 'id' and 'type' with 'both'"));
 	return;
     }
 
@@ -652,7 +685,7 @@ f_prop_find(typval_T *argvars, typval_T *rettv)
 	char_u	*text = ml_get_buf(buf, lnum, FALSE);
 	size_t	textlen = STRLEN(text) + 1;
 	int	count = (int)((buf->b_ml.ml_line_len - textlen)
-                                / sizeof(textprop_T));
+							 / sizeof(textprop_T));
 	int	    i;
 	textprop_T  prop;
 	int	    prop_start;
@@ -673,7 +706,8 @@ f_prop_find(typval_T *argvars, typval_T *rettv)
 		else if (prop.tp_col + prop.tp_len - (prop.tp_len != 0) < col)
 		    continue;
 	    }
-	    if (prop.tp_id == id || prop.tp_type == type_id)
+	    if (both ? prop.tp_id == id && prop.tp_type == type_id
+		     : prop.tp_id == id || prop.tp_type == type_id)
 	    {
 		// Check if the starting position has text props.
 		if (lnum_start == lnum
@@ -694,7 +728,7 @@ f_prop_find(typval_T *argvars, typval_T *rettv)
 		    // on a prop and we're not skipping.
 		    if (start_pos_has_prop && !skipstart)
 			dir = -1;
-		    break;
+		    continue;
 		}
 
 		// If skipstart is true, skip the prop at start pos (even if
@@ -702,7 +736,7 @@ f_prop_find(typval_T *argvars, typval_T *rettv)
 		if (start_pos_has_prop && skipstart && !seen_end)
 		{
 		    start_pos_has_prop = 0;
-		    break;
+		    continue;
 		}
 
 		prop_fill_dict(rettv->vval.v_dict, &prop, buf);
@@ -745,7 +779,7 @@ f_prop_list(typval_T *argvars, typval_T *rettv)
     }
     if (lnum < 1 || lnum > buf->b_ml.ml_line_count)
     {
-	emsg(_(e_invrange));
+	emsg(_(e_invalid_range));
 	return;
     }
 
@@ -781,13 +815,14 @@ f_prop_remove(typval_T *argvars, typval_T *rettv)
     linenr_T	start = 1;
     linenr_T	end = 0;
     linenr_T	lnum;
+    linenr_T	first_changed = 0;
+    linenr_T	last_changed = 0;
     dict_T	*dict;
     buf_T	*buf = curbuf;
-    dictitem_T	*di;
-    int		do_all = FALSE;
+    int		do_all;
     int		id = -1;
     int		type_id = -1;
-    int		both = FALSE;
+    int		both;
 
     rettv->vval.v_number = 0;
     if (argvars[0].v_type != VAR_DICT || argvars[0].vval.v_dict == NULL)
@@ -804,7 +839,7 @@ f_prop_remove(typval_T *argvars, typval_T *rettv)
 	    end = tv_get_number(&argvars[2]);
 	if (start < 1 || end < 1)
 	{
-	    emsg(_(e_invrange));
+	    emsg(_(e_invalid_range));
 	    return;
 	}
     }
@@ -815,9 +850,7 @@ f_prop_remove(typval_T *argvars, typval_T *rettv)
     if (buf->b_ml.ml_mfp == NULL)
 	return;
 
-    di = dict_find(dict, (char_u*)"all", -1);
-    if (di != NULL)
-	do_all = dict_get_number(dict, (char_u *)"all");
+    do_all = dict_get_bool(dict, (char_u *)"all", FALSE);
 
     if (dict_find(dict, (char_u *)"id", -1) != NULL)
 	id = dict_get_number(dict, (char_u *)"id");
@@ -830,8 +863,8 @@ f_prop_remove(typval_T *argvars, typval_T *rettv)
 	    return;
 	type_id = type->pt_id;
     }
-    if (dict_find(dict, (char_u *)"both", -1) != NULL)
-	both = dict_get_number(dict, (char_u *)"both");
+    both = dict_get_bool(dict, (char_u *)"both", FALSE);
+
     if (id == -1 && type_id == -1)
     {
 	emsg(_("E968: Need at least one of 'id' or 'type'"));
@@ -856,8 +889,8 @@ f_prop_remove(typval_T *argvars, typval_T *rettv)
 	len = STRLEN(text) + 1;
 	if ((size_t)buf->b_ml.ml_line_len > len)
 	{
-	    static textprop_T textprop;  // static because of alignment
-	    unsigned          idx;
+	    static textprop_T	textprop;  // static because of alignment
+	    unsigned		idx;
 
 	    for (idx = 0; idx < (buf->b_ml.ml_line_len - len)
 						   / sizeof(textprop_T); ++idx)
@@ -894,6 +927,9 @@ f_prop_remove(typval_T *argvars, typval_T *rettv)
 		    buf->b_ml.ml_line_len -= sizeof(textprop_T);
 		    --idx;
 
+		    if (first_changed == 0)
+			first_changed = lnum;
+		    last_changed = lnum;
 		    ++rettv->vval.v_number;
 		    if (!do_all)
 			break;
@@ -901,7 +937,11 @@ f_prop_remove(typval_T *argvars, typval_T *rettv)
 	    }
 	}
     }
-    redraw_buf_later(buf, NOT_VALID);
+    if (first_changed > 0)
+    {
+	changed_lines_buf(buf, first_changed, last_changed + 1, 0);
+	redraw_buf_later(buf, VALID);
+    }
 }
 
 /*
@@ -988,7 +1028,7 @@ prop_type_set(typval_T *argvars, int add)
 	di = dict_find(dict, (char_u *)"combine", -1);
 	if (di != NULL)
 	{
-	    if (tv_get_number(&di->di_tv))
+	    if (tv_get_bool(&di->di_tv))
 		prop->pt_flags |= PT_FLAG_COMBINE;
 	    else
 		prop->pt_flags &= ~PT_FLAG_COMBINE;
@@ -1001,7 +1041,7 @@ prop_type_set(typval_T *argvars, int add)
 	di = dict_find(dict, (char_u *)"start_incl", -1);
 	if (di != NULL)
 	{
-	    if (tv_get_number(&di->di_tv))
+	    if (tv_get_bool(&di->di_tv))
 		prop->pt_flags |= PT_FLAG_INS_START_INCL;
 	    else
 		prop->pt_flags &= ~PT_FLAG_INS_START_INCL;
@@ -1010,7 +1050,7 @@ prop_type_set(typval_T *argvars, int add)
 	di = dict_find(dict, (char_u *)"end_incl", -1);
 	if (di != NULL)
 	{
-	    if (tv_get_number(&di->di_tv))
+	    if (tv_get_bool(&di->di_tv))
 		prop->pt_flags |= PT_FLAG_INS_END_INCL;
 	    else
 		prop->pt_flags &= ~PT_FLAG_INS_END_INCL;
@@ -1212,6 +1252,77 @@ clear_buf_prop_types(buf_T *buf)
     buf->b_proptypes = NULL;
 }
 
+// Struct used to return two values from adjust_prop().
+typedef struct
+{
+    int dirty;	    // if the property was changed
+    int can_drop;   // whether after this change, the prop may be removed
+} adjustres_T;
+
+/*
+ * Adjust the property for "added" bytes (can be negative) inserted at "col".
+ *
+ * Note that "col" is zero-based, while tp_col is one-based.
+ * Only for the current buffer.
+ * "flags" can have:
+ * APC_SUBSTITUTE:	Text is replaced, not inserted.
+ */
+    static adjustres_T
+adjust_prop(
+	textprop_T *prop,
+	colnr_T col,
+	int added,
+	int flags)
+{
+    proptype_T	*pt = text_prop_type_by_id(curbuf, prop->tp_type);
+    int		start_incl = (pt != NULL
+				    && (pt->pt_flags & PT_FLAG_INS_START_INCL))
+						   || (flags & APC_SUBSTITUTE);
+    int		end_incl = (pt != NULL
+				     && (pt->pt_flags & PT_FLAG_INS_END_INCL));
+		// Do not drop zero-width props if they later can increase in
+		// size.
+    int		droppable = !(start_incl || end_incl);
+    adjustres_T res = {TRUE, FALSE};
+
+    if (added > 0)
+    {
+	if (col + 1 <= prop->tp_col
+		- (start_incl || (prop->tp_len == 0 && end_incl)))
+	    // Change is entirely before the text property: Only shift
+	    prop->tp_col += added;
+	else if (col + 1 < prop->tp_col + prop->tp_len + end_incl)
+	    // Insertion was inside text property
+	    prop->tp_len += added;
+    }
+    else if (prop->tp_col > col + 1)
+    {
+	if (prop->tp_col + added < col + 1)
+	{
+	    prop->tp_len += (prop->tp_col - 1 - col) + added;
+	    prop->tp_col = col + 1;
+	    if (prop->tp_len <= 0)
+	    {
+		prop->tp_len = 0;
+		res.can_drop = droppable;
+	    }
+	}
+	else
+	    prop->tp_col += added;
+    }
+    else if (prop->tp_len > 0 && prop->tp_col + prop->tp_len > col)
+    {
+	int after = col - added - (prop->tp_col - 1 + prop->tp_len);
+
+	prop->tp_len += after > 0 ? added + after : added;
+	res.can_drop = prop->tp_len <= 0 && droppable;
+    }
+    else
+	res.dirty = FALSE;
+
+    return res;
+}
+
 /*
  * Adjust the columns of text properties in line "lnum" after position "col" to
  * shift by "bytes_added" (can be negative).
@@ -1232,7 +1343,6 @@ adjust_prop_columns(
 {
     int		proplen;
     char_u	*props;
-    proptype_T  *pt;
     int		dirty = FALSE;
     int		ri, wi;
     size_t	textlen;
@@ -1249,78 +1359,24 @@ adjust_prop_columns(
     for (ri = 0; ri < proplen; ++ri)
     {
 	textprop_T	prop;
-	int		start_incl, end_incl;
-	int		can_drop;
+	adjustres_T	res;
 
-	mch_memmove(&prop, props + ri * sizeof(textprop_T), sizeof(textprop_T));
-	pt = text_prop_type_by_id(curbuf, prop.tp_type);
-	start_incl = (pt != NULL && (pt->pt_flags & PT_FLAG_INS_START_INCL))
-						   || (flags & APC_SUBSTITUTE);
-	end_incl = (pt != NULL && (pt->pt_flags & PT_FLAG_INS_END_INCL));
-	// Do not drop zero-width props if they later can increase in size
-	can_drop = !(start_incl || end_incl);
-
-	if (bytes_added > 0)
+	mch_memmove(&prop, props + ri * sizeof(prop), sizeof(prop));
+	res = adjust_prop(&prop, col, bytes_added, flags);
+	if (res.dirty)
 	{
-	    if (col + 1 <= prop.tp_col
-			      - (start_incl || (prop.tp_len == 0 && end_incl)))
-	    {
-		// Change is entirely before the text property: Only shift
-		prop.tp_col += bytes_added;
-		// Save for undo if requested and not done yet.
-		if ((flags & APC_SAVE_FOR_UNDO) && !dirty)
-		    u_savesub(lnum);
-		dirty = TRUE;
-	    }
-	    else if (col + 1 < prop.tp_col + prop.tp_len + end_incl)
-	    {
-		// Insertion was inside text property
-		prop.tp_len += bytes_added;
-		// Save for undo if requested and not done yet.
-		if ((flags & APC_SAVE_FOR_UNDO) && !dirty)
-		    u_savesub(lnum);
-		dirty = TRUE;
-	    }
-	}
-	else if (prop.tp_col > col + 1)
-	{
-	    int len_changed = FALSE;
-
-	    if (prop.tp_col + bytes_added < col + 1)
-	    {
-		prop.tp_len += (prop.tp_col - 1 - col) + bytes_added;
-		prop.tp_col = col + 1;
-		len_changed = TRUE;
-	    }
-	    else
-		prop.tp_col += bytes_added;
 	    // Save for undo if requested and not done yet.
-	    if ((flags & APC_SAVE_FOR_UNDO) && !dirty)
-		u_savesub(lnum);
+	    if ((flags & APC_SAVE_FOR_UNDO) && !dirty
+						    && u_savesub(lnum) == FAIL)
+		return FALSE;
 	    dirty = TRUE;
-	    if (len_changed && prop.tp_len <= 0)
-	    {
-		prop.tp_len = 0;
-		if (can_drop)
-		    continue;  // drop this text property
-	    }
-	}
-	else if (prop.tp_len > 0 && prop.tp_col + prop.tp_len > col)
-	{
-	    int after = col - bytes_added - (prop.tp_col - 1 + prop.tp_len);
 
-	    if (after > 0)
-		prop.tp_len += bytes_added + after;
-	    else
-		prop.tp_len += bytes_added;
-	    // Save for undo if requested and not done yet.
-	    if ((flags & APC_SAVE_FOR_UNDO) && !dirty)
-		u_savesub(lnum);
-	    dirty = TRUE;
-	    if (prop.tp_len <= 0 && can_drop)
-		continue;  // drop this text property
+	    // u_savesub() may have updated curbuf->b_ml, fetch it again
+	    if (curbuf->b_ml.ml_line_lnum != lnum)
+		proplen = get_text_props(curbuf, lnum, &props, TRUE);
 	}
-
+	if (res.can_drop)
+	    continue; // Drop this text property
 	mch_memmove(props + wi * sizeof(textprop_T), &prop, sizeof(textprop_T));
 	++wi;
     }
@@ -1372,26 +1428,38 @@ adjust_props_for_split(
     for (i = 0; i < count; ++i)
     {
 	textprop_T  prop;
-	textprop_T *p;
+	proptype_T *pt;
+	int	    start_incl, end_incl;
+	int	    cont_prev, cont_next;
 
 	// copy the prop to an aligned structure
 	mch_memmove(&prop, props + i * sizeof(textprop_T), sizeof(textprop_T));
 
-	if (prop.tp_col < kept && ga_grow(&prevprop, 1) == OK)
+	pt = text_prop_type_by_id(curbuf, prop.tp_type);
+	start_incl = (pt != NULL && (pt->pt_flags & PT_FLAG_INS_START_INCL));
+	end_incl = (pt != NULL && (pt->pt_flags & PT_FLAG_INS_END_INCL));
+	cont_prev = prop.tp_col + !start_incl <= kept;
+	cont_next = skipped <= prop.tp_col + prop.tp_len - !end_incl;
+
+	if (cont_prev && ga_grow(&prevprop, 1) == OK)
 	{
-	    p = ((textprop_T *)prevprop.ga_data) + prevprop.ga_len;
+	    textprop_T *p = ((textprop_T *)prevprop.ga_data) + prevprop.ga_len;
+
 	    *p = prop;
+	    ++prevprop.ga_len;
 	    if (p->tp_col + p->tp_len >= kept)
 		p->tp_len = kept - p->tp_col;
-	    ++prevprop.ga_len;
+	    if (cont_next)
+		p->tp_flags |= TP_FLAG_CONT_NEXT;
 	}
 
 	// Only add the property to the next line if the length is bigger than
 	// zero.
-	if (prop.tp_col + prop.tp_len > skipped && ga_grow(&nextprop, 1) == OK)
+	if (cont_next && ga_grow(&nextprop, 1) == OK)
 	{
-	    p = ((textprop_T *)nextprop.ga_data) + nextprop.ga_len;
+	    textprop_T *p = ((textprop_T *)nextprop.ga_data) + nextprop.ga_len;
 	    *p = prop;
+	    ++nextprop.ga_len;
 	    if (p->tp_col > skipped)
 		p->tp_col -= skipped - 1;
 	    else
@@ -1399,7 +1467,8 @@ adjust_props_for_split(
 		p->tp_len -= skipped - p->tp_col;
 		p->tp_col = 1;
 	    }
-	    ++nextprop.ga_len;
+	    if (cont_prev)
+		p->tp_flags |= TP_FLAG_CONT_PREV;
 	}
     }
 
@@ -1412,111 +1481,63 @@ adjust_props_for_split(
 }
 
 /*
- * Line "lnum" has been joined and will end up at column "col" in the new line.
- * "removed" bytes have been removed from the start of the line, properties
- * there are to be discarded.
- * Move the adjusted text properties to an allocated string, store it in
- * "prop_line" and adjust the columns.
+ * Prepend properties of joined line "lnum" to "new_props".
  */
     void
-adjust_props_for_join(
+prepend_joined_props(
+	char_u	    *new_props,
+	int	    propcount,
+	int	    *props_remaining,
 	linenr_T    lnum,
-	textprop_T  **prop_line,
-	int	    *prop_length,
+	int	    add_all,
 	long	    col,
 	int	    removed)
 {
-    int		proplen;
-    char_u	*props;
-    int		ri;
-    int		wi = 0;
+    char_u *props;
+    int	    proplen = get_text_props(curbuf, lnum, &props, FALSE);
+    int	    i;
 
-    proplen = get_text_props(curbuf, lnum, &props, FALSE);
-    if (proplen > 0)
+    for (i = proplen; i-- > 0; )
     {
-	*prop_line = ALLOC_MULT(textprop_T, proplen);
-	if (*prop_line != NULL)
-	{
-	    for (ri = 0; ri < proplen; ++ri)
-	    {
-		textprop_T *cp = *prop_line + wi;
+	textprop_T  prop;
+	int	    end;
 
-		mch_memmove(cp, props + ri * sizeof(textprop_T),
-							   sizeof(textprop_T));
-		if (cp->tp_col + cp->tp_len > removed)
+	mch_memmove(&prop, props + i * sizeof(prop), sizeof(prop));
+	end = !(prop.tp_flags & TP_FLAG_CONT_NEXT);
+
+	adjust_prop(&prop, 0, -removed, 0); // Remove leading spaces
+	adjust_prop(&prop, -1, col, 0); // Make line start at its final column
+
+	if (add_all || end)
+	    mch_memmove(new_props + --(*props_remaining) * sizeof(prop),
+							  &prop, sizeof(prop));
+	else
+	{
+	    int j;
+	    int	found = FALSE;
+
+	    // Search for continuing prop.
+	    for (j = *props_remaining; j < propcount; ++j)
+	    {
+		textprop_T op;
+
+		mch_memmove(&op, new_props + j * sizeof(op), sizeof(op));
+		if ((op.tp_flags & TP_FLAG_CONT_PREV)
+			&& op.tp_id == prop.tp_id && op.tp_type == prop.tp_type)
 		{
-		    if (cp->tp_col > removed)
-			cp->tp_col += col;
-		    else
-		    {
-			// property was partly deleted, make it shorter
-			cp->tp_len -= removed - cp->tp_col;
-			cp->tp_col = col;
-		    }
-		    ++wi;
+		    found = TRUE;
+		    op.tp_len += op.tp_col - prop.tp_col;
+		    op.tp_col = prop.tp_col;
+		    // Start/end is taken care of when deleting joined lines
+		    op.tp_flags = prop.tp_flags;
+		    mch_memmove(new_props + j * sizeof(op), &op, sizeof(op));
+		    break;
 		}
 	    }
+	    if (!found)
+		internal_error("text property above joined line not found");
 	}
-	*prop_length = wi;
     }
-}
-
-/*
- * After joining lines: concatenate the text and the properties of all joined
- * lines into one line and replace the line.
- */
-    void
-join_prop_lines(
-	linenr_T    lnum,
-	char_u	    *newp,
-	textprop_T  **prop_lines,
-	int	    *prop_lengths,
-	int	    count)
-{
-    size_t	proplen = 0;
-    size_t	oldproplen;
-    char_u	*props;
-    int		i;
-    size_t	len;
-    char_u	*line;
-    size_t	l;
-
-    for (i = 0; i < count - 1; ++i)
-	proplen += prop_lengths[i];
-    if (proplen == 0)
-    {
-	ml_replace(lnum, newp, FALSE);
-	return;
-    }
-
-    // get existing properties of the joined line
-    oldproplen = get_text_props(curbuf, lnum, &props, FALSE);
-
-    len = STRLEN(newp) + 1;
-    line = alloc(len + (oldproplen + proplen) * sizeof(textprop_T));
-    if (line == NULL)
-	return;
-    mch_memmove(line, newp, len);
-    if (oldproplen > 0)
-    {
-	l = oldproplen * sizeof(textprop_T);
-	mch_memmove(line + len, props, l);
-	len += l;
-    }
-
-    for (i = 0; i < count - 1; ++i)
-	if (prop_lines[i] != NULL)
-	{
-	    l = prop_lengths[i] * sizeof(textprop_T);
-	    mch_memmove(line + len, prop_lines[i], l);
-	    len += l;
-	    vim_free(prop_lines[i]);
-	}
-
-    ml_replace_len(lnum, line, (colnr_T)len, TRUE, FALSE);
-    vim_free(newp);
-    vim_free(prop_lines);
-    vim_free(prop_lengths);
 }
 
 #endif // FEAT_PROP_POPUP

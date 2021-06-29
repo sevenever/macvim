@@ -30,6 +30,8 @@ DOCS = \
 	filetype.txt \
 	fold.txt \
 	ft_ada.txt \
+	ft_ps1.txt \
+	ft_raku.txt \
 	ft_rust.txt \
 	ft_sql.txt \
 	gui.txt \
@@ -142,6 +144,7 @@ DOCS = \
 	usr_43.txt \
 	usr_44.txt \
 	usr_45.txt \
+	usr_46.txt \
 	usr_90.txt \
 	usr_toc.txt \
 	various.txt \
@@ -173,6 +176,8 @@ HTMLS = \
 	filetype.html \
 	fold.html \
 	ft_ada.html \
+	ft_ps1.html \
+	ft_raku.html \
 	ft_rust.html \
 	ft_sql.html \
 	gui.html \
@@ -283,6 +288,7 @@ HTMLS = \
 	usr_43.html \
 	usr_44.html \
 	usr_45.html \
+	usr_46.html \
 	usr_90.html \
 	usr_toc.html \
 	various.html \
@@ -318,7 +324,11 @@ CONVERTED = \
 	evim-ru.UTF-8.1 \
 	vimdiff-ru.UTF-8.1 \
 	vimtutor-ru.UTF-8.1 \
-	xxd-ru.UTF-8.1
+	xxd-ru.UTF-8.1 \
+	vim-tr.UTF-8.1 \
+	evim-tr.UTF-8.1 \
+	vimdiff-tr.UTF-8.1 \
+	vimtutor-tr.UTF-8.1
 
 .SUFFIXES:
 .SUFFIXES: .c .o .txt .html
@@ -391,7 +401,7 @@ test_urls:
 	vim -S test_urls.vim
 
 clean:
-	-rm doctags *.html tags.ref
+	-rm -f doctags *.html tags.ref
 
 # These files are in the extra archive, skip if not present
 
@@ -510,3 +520,15 @@ vimtutor-ru.UTF-8.1: vimtutor-ru.1
 
 xxd-ru.UTF-8.1: xxd-ru.1
 	iconv -f KOI8-R -t utf-8 $< >$@
+
+vim-tr.UTF-8.1: vim-tr.1
+	iconv -f latin5 -t utf-8 $< >$@
+
+evim-tr.UTF-8.1: evim-tr.1
+	iconv -f latin5 -t utf-8 $< >$@
+
+vimdiff-tr.UTF-8.1: vimdiff-tr.1
+	iconv -f latin5 -t utf-8 $< >$@
+
+vimtutor-tr.UTF-8.1: vimtutor-tr.1
+	iconv -f latin5 -t utf-8 $< >$@

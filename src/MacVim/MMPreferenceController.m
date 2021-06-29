@@ -9,70 +9,79 @@
  */
 
 #import "MMPreferenceController.h"
+#import "MMAppController.h"
 #import "Miscellaneous.h"
-
-// On Leopard, we want to use the images provided by the OS for some of the
-// toolbar images (NSImageNamePreferencesGeneral and friends). We need to jump
-// through some hoops to do that in a way that MacVim still _compiles_ on Tiger
-// (life would be easier if we'd require Leopard for building). See
-// http://developer.apple.com/documentation/MacOSX/Conceptual/BPFrameworks/Concepts/WeakLinking.html
-// and http://developer.apple.com/technotes/tn2002/tn2064.html
-// for how you'd do it with a Leopard build system, and see
-// http://lists.cairographics.org/archives/cairo-bugs/2007-December/001818.html
-// for why this doesn't work here.
-// Using the system images gives us resolution independence and consistency
-// with other apps.
-
-#import <dlfcn.h>
-
-
-NSString* nsImageNamePreferencesGeneral = nil;
-NSString* nsImageNamePreferencesAdvanced = nil;
-
-
-static void loadSymbols()
-{
-    // use dlfcn() instead of the deprecated NSModule api.
-    void *ptr;
-    if ((ptr = dlsym(RTLD_DEFAULT, "NSImageNamePreferencesGeneral")) != NULL)
-        nsImageNamePreferencesGeneral = *(NSString**)ptr;
-    if ((ptr = dlsym(RTLD_DEFAULT, "NSImageNameAdvanced")) != NULL)
-        nsImageNamePreferencesAdvanced = *(NSString**)ptr;
-}
-
 
 @implementation MMPreferenceController
 
+- (void)windowDidLoad
+{
+#if DISABLE_SPARKLE
+    // If Sparkle is disabled in config, we don't want to show the preference pane
+    // which could be confusing as it won't do anything.
+    // After hiding the Sparkle subview, shorten the height of the General pane
+    // and move its other subviews down.
+    [sparkleUpdaterPane setHidden:YES];
+    CGFloat sparkleHeight = NSHeight(sparkleUpdaterPane.frame);
+    NSRect frame = generalPreferences.frame;
+    frame.size.height -= sparkleHeight;
+    generalPreferences.frame = frame;
+    for (NSView *subview in generalPreferences.subviews) {
+        frame = subview.frame;
+        frame.origin.y -= sparkleHeight;
+        subview.frame = frame;
+    }
+#endif
+    [super windowDidLoad];
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 110000
+    if (@available(macos 11.0, *)) {
+        // macOS 11 will default to a unified toolbar style unless you use the new
+        // toolbarStyle to tell it to use a "preference" style, which makes it look nice
+        // and centered.
+        [self window].toolbarStyle = NSWindowToolbarStylePreference;
+    }
+#endif
+}
+
 - (IBAction)showWindow:(id)sender
 {
+    [super setCrossFade:NO];
     [super showWindow:sender];
-    #if DISABLE_SPARKLE
-        // If Sparkle is disabled in config, we don't want to show the preference pane
-        // which could be confusing as it won't do anything.
-        [sparkleUpdaterPane setHidden:YES];
-    #endif
 }
 
 - (void)setupToolbar
 {
-    loadSymbols();
-
-    if (nsImageNamePreferencesGeneral != NULL) {
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 110000
+    if (@available(macos 11.0, *)) {
+        // Use SF Symbols for versions of the OS that supports it to be more unified with OS appearance.
         [self addView:generalPreferences
                 label:@"General"
-                image:[NSImage imageNamed:nsImageNamePreferencesGeneral]];
-    } else {
-        [self addView:generalPreferences label:@"General"];
-    }
+                image:[NSImage imageWithSystemSymbolName:@"gearshape" accessibilityDescription:nil]];
 
-    if (nsImageNamePreferencesAdvanced != NULL) {
+        [self addView:appearancePreferences
+                label:@"Appearance"
+                image:[NSImage imageWithSystemSymbolName:@"paintbrush" accessibilityDescription:nil]];
+
         [self addView:advancedPreferences
                 label:@"Advanced"
-                image:[NSImage imageNamed:nsImageNamePreferencesAdvanced]];
-    } else {
-        [self addView:advancedPreferences label:@"Advanced"];
+                image:[NSImage imageWithSystemSymbolName:@"gearshape.2" accessibilityDescription:nil]];
     }
+    else
+#endif
+    {
+        [self addView:generalPreferences
+                label:@"General"
+                image:[NSImage imageNamed:NSImageNamePreferencesGeneral]];
 
+        [self addView:appearancePreferences
+                label:@"Appearance"
+                image:[NSImage imageNamed:NSImageNameColorPanel]];
+
+        [self addView:advancedPreferences
+                label:@"Advanced"
+                image:[NSImage imageNamed:NSImageNameAdvanced]];
+    }
 }
 
 
@@ -110,6 +119,18 @@ static void loadSymbols()
     if (!checkForUpdates) {
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"SUAutomaticallyUpdate"];
     }
+}
+
+- (IBAction)appearanceChanged:(id)sender
+{
+    // Refresh all windows' appearance to match preference.
+    [[MMAppController sharedInstance] refreshAllAppearances];
+}
+
+- (IBAction)fontPropertiesChanged:(id)sender
+{
+    // Refresh all windows' fonts.
+    [[MMAppController sharedInstance] refreshAllFonts];
 }
 
 @end

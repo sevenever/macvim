@@ -316,7 +316,7 @@ undo_allowed(void)
     // Don't allow changes when 'modifiable' is off.
     if (!curbuf->b_p_ma)
     {
-	emsg(_(e_modifiable));
+	emsg(_(e_cannot_make_changes_modifiable_is_off));
 	return FALSE;
     }
 
@@ -331,9 +331,9 @@ undo_allowed(void)
 
     // Don't allow changes in the buffer while editing the cmdline.  The
     // caller of getcmdline() may get confused.
-    if (textlock != 0)
+    if (textwinlock != 0 || textlock != 0)
     {
-	emsg(_(e_secure));
+	emsg(_(e_textlock));
 	return FALSE;
     }
 
@@ -374,6 +374,29 @@ u_save_line(undoline_T *ul, linenr_T lnum)
     }
     return ul->ul_line == NULL ? FAIL : OK;
 }
+
+#ifdef FEAT_PROP_POPUP
+/*
+ * return TRUE if line "lnum" has text property "flags".
+ */
+    static int
+has_prop_w_flags(linenr_T lnum, int flags)
+{
+    char_u  *props;
+    int	    i;
+    int	    proplen = get_text_props(curbuf, lnum, &props, FALSE);
+
+    for (i = 0; i < proplen; ++i)
+    {
+	textprop_T prop;
+
+	mch_memmove(&prop, props + i * sizeof prop, sizeof prop);
+	if (prop.tp_flags & flags)
+	    return TRUE;
+    }
+    return FALSE;
+}
+#endif
 
 /*
  * Common code for various ways to save text before a change.
@@ -448,6 +471,23 @@ u_savecommon(
 
 #ifdef U_DEBUG
     u_check(FALSE);
+#endif
+
+#ifdef FEAT_PROP_POPUP
+    // Include the line above if a text property continues from it.
+    // Include the line below if a text property continues to it.
+    if (bot - top > 1)
+    {
+	if (top > 0 && has_prop_w_flags(top + 1, TP_FLAG_CONT_PREV))
+	    --top;
+	if (bot <= curbuf->b_ml.ml_line_count
+			       && has_prop_w_flags(bot - 1, TP_FLAG_CONT_NEXT))
+	{
+	    ++bot;
+	    if (newbot != 0)
+		++newbot;
+	}
+    }
 #endif
 
     size = bot - top - 1;
@@ -662,7 +702,7 @@ u_savecommon(
     uep = U_ALLOC_LINE(sizeof(u_entry_T));
     if (uep == NULL)
 	goto nomem;
-    vim_memset(uep, 0, sizeof(u_entry_T));
+    CLEAR_POINTER(uep);
 #ifdef U_DEBUG
     uep->ue_magic = UE_MAGIC;
 #endif
@@ -809,7 +849,7 @@ u_get_undo_file_name(char_u *buf_ffname, int reading)
 	{
 	    // Use same directory as the ffname,
 	    // "dir/name" -> "dir/.name.un~"
-	    undo_file_name = vim_strnsave(ffname, (int)(STRLEN(ffname) + 5));
+	    undo_file_name = vim_strnsave(ffname, STRLEN(ffname) + 5);
 	    if (undo_file_name == NULL)
 		break;
 	    p = gettail(undo_file_name);
@@ -923,7 +963,9 @@ undo_flush(bufinfo_T *bi)
 {
     if (bi->bi_buffer != NULL && bi->bi_state != NULL && bi->bi_used > 0)
     {
-	crypt_encode_inplace(bi->bi_state, bi->bi_buffer, bi->bi_used);
+	// Last parameter is only used for sodium encryption and that
+	// explicitly disables encryption of undofiles.
+	crypt_encode_inplace(bi->bi_state, bi->bi_buffer, bi->bi_used, FALSE);
 	if (fwrite(bi->bi_buffer, bi->bi_used, (size_t)1, bi->bi_fp) != 1)
 	    return FAIL;
 	bi->bi_used = 0;
@@ -955,7 +997,9 @@ fwrite_crypt(bufinfo_T *bi, char_u *ptr, size_t len)
 	    if (copy == NULL)
 		return 0;
 	}
-	crypt_encode(bi->bi_state, ptr, len, copy);
+	// Last parameter is only used for sodium encryption and that
+	// explicitly disables encryption of undofiles.
+	crypt_encode(bi->bi_state, ptr, len, copy, TRUE);
 	i = fwrite(copy, len, (size_t)1, bi->bi_fp);
 	if (copy != small_buf)
 	    vim_free(copy);
@@ -1089,7 +1133,7 @@ undo_read(bufinfo_T *bi, char_u *buffer, size_t size)
 		}
 		bi->bi_avail = n;
 		bi->bi_used = 0;
-		crypt_decode_inplace(bi->bi_state, bi->bi_buffer, bi->bi_avail);
+		crypt_decode_inplace(bi->bi_state, bi->bi_buffer, bi->bi_avail, FALSE);
 	    }
 	    n = size_todo;
 	    if (n > bi->bi_avail - bi->bi_used)
@@ -1136,7 +1180,7 @@ read_string_decrypt(bufinfo_T *bi, int len)
 	ptr[len] = NUL;
 #ifdef FEAT_CRYPT
 	if (bi->bi_state != NULL && bi->bi_buffer == NULL)
-	    crypt_decode_inplace(bi->bi_state, ptr, len);
+	    crypt_decode_inplace(bi->bi_state, ptr, len, FALSE);
 #endif
     }
     return ptr;
@@ -1288,7 +1332,7 @@ unserialize_uhp(bufinfo_T *bi, char_u *file_name)
     uhp = U_ALLOC_LINE(sizeof(u_header_T));
     if (uhp == NULL)
 	return NULL;
-    vim_memset(uhp, 0, sizeof(u_header_T));
+    CLEAR_POINTER(uhp);
 #ifdef U_DEBUG
     uhp->uh_magic = UH_MAGIC;
 #endif
@@ -1405,7 +1449,7 @@ unserialize_uep(bufinfo_T *bi, int *error, char_u *file_name)
     uep = U_ALLOC_LINE(sizeof(u_entry_T));
     if (uep == NULL)
 	return NULL;
-    vim_memset(uep, 0, sizeof(u_entry_T));
+    CLEAR_POINTER(uep);
 #ifdef U_DEBUG
     uep->ue_magic = UE_MAGIC;
 #endif
@@ -1532,7 +1576,7 @@ u_write_undo(
 #endif
     bufinfo_T	bi;
 
-    vim_memset(&bi, 0, sizeof(bi));
+    CLEAR_FIELD(bi);
 
     if (name == NULL)
     {
@@ -1814,7 +1858,7 @@ u_read_undo(char_u *name, char_u *hash, char_u *orig_name UNUSED)
 #endif
     bufinfo_T	bi;
 
-    vim_memset(&bi, 0, sizeof(bi));
+    CLEAR_FIELD(bi);
     line_ptr.ul_len = 0;
     line_ptr.ul_line = NULL;
 
@@ -2745,7 +2789,7 @@ u_undoredo(int undo)
 		// dummy empty line will be inserted
 		if (curbuf->b_ml.ml_line_count == 1)
 		    empty_buffer = TRUE;
-		ml_delete(lnum, FALSE);
+		ml_delete_flags(lnum, ML_DEL_UNDO);
 	    }
 	}
 	else
@@ -2767,8 +2811,8 @@ u_undoredo(int undo)
 		    ml_replace_len((linenr_T)1, uep->ue_array[i].ul_line,
 					  uep->ue_array[i].ul_len, TRUE, TRUE);
 		else
-		    ml_append(lnum, uep->ue_array[i].ul_line,
-				      (colnr_T)uep->ue_array[i].ul_len, FALSE);
+		    ml_append_flags(lnum, uep->ue_array[i].ul_line,
+			     (colnr_T)uep->ue_array[i].ul_len, ML_APPEND_UNDO);
 		vim_free(uep->ue_array[i].ul_line);
 	    }
 	    vim_free((char_u *)uep->ue_array);
@@ -3480,7 +3524,8 @@ u_undoline(void)
 	do_outofmem_msg((long_u)0);
 	return;
     }
-    ml_replace_len(curbuf->b_u_line_lnum, curbuf->b_u_line_ptr.ul_line, curbuf->b_u_line_ptr.ul_len, TRUE, FALSE);
+    ml_replace_len(curbuf->b_u_line_lnum, curbuf->b_u_line_ptr.ul_line,
+				     curbuf->b_u_line_ptr.ul_len, TRUE, FALSE);
     changed_bytes(curbuf->b_u_line_lnum, 0);
     curbuf->b_u_line_ptr = oldp;
 

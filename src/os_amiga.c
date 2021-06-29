@@ -116,6 +116,9 @@ static char version[] __attribute__((used)) =
 # ifdef PATCHLEVEL
     "." PATCHLEVEL
 # endif
+# ifdef BUILDDATE
+    " (" BUILDDATE ")"
+# endif
     ;
 #endif
 
@@ -222,10 +225,10 @@ mch_avail_mem(int special)
 
 /*
  * Waits a specified amount of time, or until input arrives if
- * ignoreinput is FALSE.
+ * flags does not have MCH_DELAY_IGNOREINPUT.
  */
     void
-mch_delay(long msec, int ignoreinput)
+mch_delay(long msec, int flags)
 {
 #ifndef LATTICE		// SAS declares void Delay(ULONG)
     void	    Delay(long);
@@ -233,7 +236,7 @@ mch_delay(long msec, int ignoreinput)
 
     if (msec > 0)
     {
-	if (ignoreinput)
+	if (flags & MCH_DELAY_IGNOREINPUT)
 	    Delay(msec / 20L);	    // Delay works with 20 msec intervals
 	else
 	    WaitForChar(raw_in, msec * 1000L);
@@ -443,7 +446,7 @@ mch_check_win(int argc, char **argv)
      * we use a pointer to the current task instead. This should be a
      * shared structure and thus globally unique.
      */
-#ifdef __amigaos4__
+#if !defined(__amigaos4__) && !defined(__AROS__) && !defined(__MORPHOS__)
     sprintf((char *)buf1, "t:nc%p", FindTask(0));
 #else
     sprintf((char *)buf1, "t:nc%ld", (long)buf1);
@@ -703,7 +706,7 @@ mch_get_host_name(char_u *s, int len)
     long
 mch_get_pid(void)
 {
-#ifdef __amigaos4__
+#if defined(__amigaos4__) || defined(__AROS__) || defined(__MORPHOS__)
     // This is as close to a pid as we can come. We could use CLI numbers also,
     // but then we would have two different types of process identifiers.
     return((long)FindTask(0));
@@ -977,9 +980,9 @@ mch_exit(int r)
  *	it sends a 0 to the console to make it back into a CON: from a RAW:
  */
     void
-mch_settmode(int tmode)
+mch_settmode(tmode_T tmode)
 {
-#if defined(__AROS__) || defined(__amigaos4__)
+#if defined(__AROS__) || defined(__amigaos4__) || defined(__MORPHOS__)
     if (!SetMode(raw_in, tmode == TMODE_RAW ? 1 : 0))
 #else
     if (dos_packet(MP(raw_in), (long)ACTION_SCREEN_MODE,
@@ -1005,7 +1008,58 @@ mch_settmode(int tmode)
 #endif
 
 /*
- * try to get the real window size
+ * Get console size in a system friendly way on AROS and MorphOS.
+ * Return FAIL for failure, OK otherwise
+ */
+#if defined(__AROS__) || defined(__MORPHOS__)
+    int
+mch_get_shellsize(void)
+{
+    if (!term_console)
+        return FAIL;
+
+    if (raw_in && raw_out)
+    {
+        // Save current console mode.
+        int old_tmode = cur_tmode;
+        char ctrl[] = "\x9b""0 q";
+
+        // Set RAW mode.
+        mch_settmode(TMODE_RAW);
+
+        // Write control sequence to console.
+        if (Write(raw_out, ctrl, sizeof(ctrl)) == sizeof(ctrl))
+        {
+            char scan[] = "\x9b""1;1;%d;%d r",
+                 answ[sizeof(scan) + 8] = { '\0' };
+
+            // Read return sequence from input.
+            if (Read(raw_in, answ, sizeof(answ) - 1) > 0)
+            {
+                // Parse result and set Vim globals.
+                if (sscanf(answ, scan, &Rows, &Columns) == 2)
+                {
+                    // Restore console mode.
+                    mch_settmode(old_tmode);
+                    return OK;
+                }
+            }
+        }
+
+        // Restore console mode.
+        mch_settmode(old_tmode);
+    }
+
+    // I/O error. Default size fallback.
+    term_console = FALSE;
+    Columns = 80;
+    Rows = 24;
+
+    return FAIL;
+}
+#else
+/*
+ * Try to get the real window size,
  * return FAIL for failure, OK otherwise
  */
     int
@@ -1037,13 +1091,8 @@ mch_get_shellsize(void)
 	OUT_STR("\233t\233u");	// CSI t CSI u
     out_flush();
 
-#ifdef __AROS__
-    if (!Info(raw_out, id)
-		 || (wb_window = (struct Window *) id->id_VolumeNode) == NULL)
-#else
     if (dos_packet(MP(raw_out), (long)ACTION_DISK_INFO, ((ULONG) id) >> 2) == 0
 	    || (wb_window = (struct Window *)id->id_VolumeNode) == NULL)
-#endif
     {
 	// it's not an amiga window, maybe aux device
 	// terminal type should be set
@@ -1078,6 +1127,7 @@ out:
 
     return FAIL;
 }
+#endif
 
 /*
  * Try to set the real window size to Rows and Columns.
@@ -1387,7 +1437,11 @@ mch_call_shell(
     if ((mydir = CurrentDir(mydir)) != 0) // make sure we stay in the same directory
 	UnLock(mydir);
     if (tmode == TMODE_RAW)
+    {
+	// The shell may have messed with the mode, always set it.
+	cur_tmode = TMODE_UNKNOWN;
 	settmode(TMODE_RAW);		// set to raw mode
+    }
 #ifdef FEAT_TITLE
     resettitle();
 #endif

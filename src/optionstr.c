@@ -21,10 +21,14 @@ static char *(p_bo_values[]) = {"all", "backspace", "cursor", "complete",
 				 "hangul", "insertmode", "lang", "mess",
 				 "showmatch", "operator", "register", "shell",
 				 "spell", "wildmode", NULL};
-static char *(p_nf_values[]) = {"bin", "octal", "hex", "alpha", NULL};
+static char *(p_nf_values[]) = {"bin", "octal", "hex", "alpha", "unsigned", NULL};
 static char *(p_ff_values[]) = {FF_UNIX, FF_DOS, FF_MAC, NULL};
 #ifdef FEAT_CRYPT
-static char *(p_cm_values[]) = {"zip", "blowfish", "blowfish2", NULL};
+static char *(p_cm_values[]) = {"zip", "blowfish", "blowfish2",
+ # ifdef FEAT_SODIUM
+    "xchacha20",
+ # endif
+    NULL};
 #endif
 static char *(p_cmp_values[]) = {"internal", "keepascii", NULL};
 static char *(p_dy_values[]) = {"lastline", "truncate", "uhex", NULL};
@@ -34,10 +38,11 @@ static char *(p_fdo_values[]) = {"all", "block", "hor", "mark", "percent",
 				 "undo", "jump", NULL};
 #endif
 #ifdef FEAT_SESSION
-// Also used for 'viewoptions'!
+// Also used for 'viewoptions'!  Keep in sync with SSOP_ flags.
 static char *(p_ssop_values[]) = {"buffers", "winpos", "resize", "winsize",
     "localoptions", "options", "help", "blank", "globals", "slash", "unix",
-    "sesdir", "curdir", "folds", "cursor", "tabpages", "terminal", NULL};
+    "sesdir", "curdir", "folds", "cursor", "tabpages", "terminal", "skiprtp",
+    NULL};
 #endif
 // Keep in sync with SWB_ flags in option.h
 static char *(p_swb_values[]) = {"useopen", "usetab", "split", "newtab", "vsplit", "uselast", NULL};
@@ -68,7 +73,7 @@ static char *(p_debug_values[]) = {"msg", "throw", "beep", NULL};
 static char *(p_ead_values[]) = {"both", "ver", "hor", NULL};
 static char *(p_buftype_values[]) = {"nofile", "nowrite", "quickfix", "help", "terminal", "acwrite", "prompt", "popup", NULL};
 static char *(p_bufhidden_values[]) = {"hide", "unload", "delete", "wipe", NULL};
-static char *(p_bs_values[]) = {"indent", "eol", "start", NULL};
+static char *(p_bs_values[]) = {"indent", "eol", "start", "nostop", NULL};
 #ifdef FEAT_FOLDING
 static char *(p_fdm_values[]) = {"manual", "expr", "marker", "indent", "syntax",
 # ifdef FEAT_DIFF
@@ -248,6 +253,7 @@ check_buf_options(buf_T *buf)
     check_string_option(&buf->b_s.b_p_spc);
     check_string_option(&buf->b_s.b_p_spf);
     check_string_option(&buf->b_s.b_p_spl);
+    check_string_option(&buf->b_s.b_p_spo);
 #endif
 #ifdef FEAT_SEARCHPATH
     check_string_option(&buf->b_p_sua);
@@ -570,11 +576,10 @@ valid_filetype(char_u *val)
     static char *
 check_stl_option(char_u *s)
 {
-    int		itemcnt = 0;
     int		groupdepth = 0;
     static char errbuf[80];
 
-    while (*s && itemcnt < STL_MAX_ITEM)
+    while (*s)
     {
 	// Check for valid keys after % sequences
 	while (*s && *s != '%')
@@ -582,8 +587,6 @@ check_stl_option(char_u *s)
 	if (!*s)
 	    break;
 	s++;
-	if (*s != '%' && *s != ')')
-	    ++itemcnt;
 	if (*s == '%' || *s == STL_TRUNCMARK || *s == STL_MIDDLEMARK)
 	{
 	    s++;
@@ -619,15 +622,15 @@ check_stl_option(char_u *s)
 	}
 	if (*s == '{')
 	{
+	    int reevaluate = (*s == '%');
+
 	    s++;
-	    while (*s != '}' && *s)
+	    while ((*s != '}' || (reevaluate && s[-1] != '%')) && *s)
 		s++;
 	    if (*s != '}')
 		return N_("E540: Unclosed expression sequence");
 	}
     }
-    if (itemcnt >= STL_MAX_ITEM)
-	return N_("E541: too many items");
     if (groupdepth != 0)
 	return N_("E542: unbalanced groups");
     return NULL;
@@ -691,7 +694,7 @@ did_set_string_option(
 	if (T_NAME[0] == NUL)
 	    errmsg = N_("E529: Cannot set 'term' to empty string");
 #ifdef FEAT_GUI
-	if (gui.in_use)
+	else if (gui.in_use)
 	    errmsg = N_("E530: Cannot change term in GUI");
 	else if (term_is_gui(T_NAME))
 	    errmsg = N_("E531: Use \":gui\" to start the GUI");
@@ -866,10 +869,24 @@ did_set_string_option(
     {
 	if (check_opt_strings(p_ambw, p_ambw_values, FALSE) != OK)
 	    errmsg = e_invarg;
-	else if (set_chars_option(&p_lcs) != NULL)
-	    errmsg = _("E834: Conflicts with value of 'listchars'");
-	else if (set_chars_option(&p_fcs) != NULL)
+	else if (set_chars_option(curwin, &p_fcs) != NULL)
 	    errmsg = _("E835: Conflicts with value of 'fillchars'");
+	else
+	{
+	    tabpage_T	*tp;
+	    win_T	*wp;
+
+	    FOR_ALL_TAB_WINDOWS(tp, wp)
+	    {
+		if (set_chars_option(wp, &wp->w_p_lcs) != NULL)
+		{
+		    errmsg = _("E834: Conflicts with value of 'listchars'");
+		    goto ambw_end;
+		}
+	    }
+	}
+ambw_end:
+	{}
     }
 
     // 'background'
@@ -896,6 +913,15 @@ did_set_string_option(
 		check_string_option(&p_bg);
 		init_highlight(FALSE, FALSE);
 	    }
+#endif
+#ifdef FEAT_TERMINAL
+	    term_update_colors_all();
+#endif
+
+#ifdef FEAT_GUI_MACVIM
+	    // MacVim needs to know about background changes to optionally
+	    // change the appearance mode.
+	    gui_macvim_set_background(dark);
 #endif
 	}
 	else
@@ -951,7 +977,7 @@ did_set_string_option(
 	if (gvarp == &p_fenc)
 	{
 	    if (!curbuf->b_p_ma && opt_flags != OPT_GLOBAL)
-		errmsg = e_modifiable;
+		errmsg = e_cannot_make_changes_modifiable_is_off;
 	    else if (vim_strchr(*varp, ',') != NULL)
 		// No comma allowed in 'fileencoding'; catches confusing it
 		// with 'fileencodings'.
@@ -1114,7 +1140,7 @@ did_set_string_option(
     else if (gvarp == &p_ff)
     {
 	if (!curbuf->b_p_ma && !(opt_flags & OPT_GLOBAL))
-	    errmsg = e_modifiable;
+	    errmsg = e_cannot_make_changes_modifiable_is_off;
 	else if (check_opt_strings(*varp, p_ff_values, FALSE) != OK)
 	    errmsg = e_invarg;
 	else
@@ -1161,8 +1187,11 @@ did_set_string_option(
 
 	if (STRCMP(curbuf->b_p_key, oldval) != 0)
 	    // Need to update the swapfile.
+	{
 	    ml_set_crypt_key(curbuf, oldval,
 			      *curbuf->b_p_cm == NUL ? p_cm : curbuf->b_p_cm);
+	    changed_internal();
+	}
     }
 
     else if (gvarp == &p_cm)
@@ -1297,16 +1326,37 @@ did_set_string_option(
 	}
     }
 
-    // 'listchars'
+    // global 'listchars'
     else if (varp == &p_lcs)
     {
-	errmsg = set_chars_option(varp);
+	errmsg = set_chars_option(curwin, varp);
+	if (errmsg == NULL)
+	{
+	    tabpage_T	*tp;
+	    win_T		*wp;
+
+	    // The current window is set to use the global 'listchars' value.
+	    // So clear the window-local value.
+	    if (!(opt_flags & OPT_GLOBAL))
+		clear_string_option(&curwin->w_p_lcs);
+	    FOR_ALL_TAB_WINDOWS(tp, wp)
+	    {
+		errmsg = set_chars_option(wp, &wp->w_p_lcs);
+		if (errmsg)
+		    break;
+	    }
+	    redraw_all_later(NOT_VALID);
+	}
     }
+
+    // local 'listchars'
+    else if (varp == &curwin->w_p_lcs)
+	errmsg = set_chars_option(curwin, varp);
 
     // 'fillchars'
     else if (varp == &p_fcs)
     {
-	errmsg = set_chars_option(varp);
+	errmsg = set_chars_option(curwin, varp);
     }
 
 #ifdef FEAT_CMDWIN
@@ -1434,6 +1484,9 @@ did_set_string_option(
 	}
 	if (varp == &T_BE && termcap_active)
 	{
+#ifdef FEAT_JOB_CHANNEL
+	    ch_log_output = TRUE;
+#endif
 	    if (*T_BE == NUL)
 		// When clearing t_BE we assume the user no longer wants
 		// bracketed paste, thus disable it by writing t_BD.
@@ -1705,7 +1758,7 @@ did_set_string_option(
 	int	is_spellfile = varp == &(curwin->w_s->b_p_spf);
 
 	if ((is_spellfile && !valid_spellfile(*varp))
-	    || (!is_spellfile && !valid_spellang(*varp)))
+	    || (!is_spellfile && !valid_spelllang(*varp)))
 	    errmsg = e_invarg;
 	else
 	    errmsg = did_set_spell_option(is_spellfile);
@@ -1714,6 +1767,12 @@ did_set_string_option(
     else if (varp == &(curwin->w_s->b_p_spc))
     {
 	errmsg = compile_cap_prog(curwin->w_s);
+    }
+    // 'spelloptions'
+    else if (varp == &(curwin->w_s->b_p_spo))
+    {
+	if (**varp != NUL && STRCMP("camel", *varp) != 0)
+	    errmsg = e_invarg;
     }
     // 'spellsuggest'
     else if (varp == &p_sps)
@@ -1914,7 +1973,7 @@ did_set_string_option(
     {
 	if (VIM_ISDIGIT(*p_bs))
 	{
-	    if (*p_bs > '2' || p_bs[1] != NUL)
+	    if (*p_bs > '3' || p_bs[1] != NUL)
 		errmsg = e_invarg;
 	}
 	else if (check_opt_strings(p_bs, p_bs_values, TRUE) != OK)
@@ -2026,15 +2085,14 @@ did_set_string_option(
 #endif
 
 #ifdef FEAT_FULLSCREEN
-    /* 'fuoptions' */
+    // 'fuoptions'
     else if (varp == &p_fuoptions)
     {
-        if (check_fuoptions(p_fuoptions, &fuoptions_flags, 
-                    &fuoptions_bgcolor) != OK)
+	if (check_fuoptions() != OK)
 	    errmsg = e_invarg;
     }
 #endif
-    
+
     // 'virtualedit'
     else if (varp == &p_ve)
     {
@@ -2146,7 +2204,7 @@ did_set_string_option(
     else if (varp == &curwin->w_p_wcr)
     {
 	if (curwin->w_buffer->b_term != NULL)
-	    term_update_colors();
+	    term_update_colors(curwin->w_buffer->b_term);
     }
 # if defined(MSWIN)
     // 'termwintype'
@@ -2253,8 +2311,18 @@ did_set_string_option(
     {
 	if (parse_completepopup(NULL) == FAIL)
 	    errmsg = e_invarg;
+	else
+	    popup_close_info();
     }
 # endif
+#endif
+
+#ifdef FEAT_QUICKFIX
+    else if (varp == &p_qftf)
+    {
+	if (qf_process_qftf_option() == FALSE)
+	    errmsg = e_invarg;
+    }
 #endif
 
     // Options that are a list of flags.
@@ -2413,15 +2481,23 @@ did_set_string_option(
 	    setmouse();		    // in case 'mouse' changed
     }
 
+#if defined(FEAT_LUA) || defined(PROTO)
+    if (varp == &p_rtp)
+	update_package_paths_in_lua();
+#endif
+
     if (curwin->w_curswant != MAXCOL
 		   && (get_option_flags(opt_idx) & (P_CURSWANT | P_RALL)) != 0)
 	curwin->w_set_curswant = TRUE;
 
+    if ((opt_flags & OPT_NO_REDRAW) == 0)
+    {
 #ifdef FEAT_GUI
-    // check redraw when it's not a GUI option or the GUI is active.
-    if (!redraw_gui_only || gui.in_use)
+	// check redraw when it's not a GUI option or the GUI is active.
+	if (!redraw_gui_only || gui.in_use)
 #endif
-	check_redraw(get_option_flags(opt_idx));
+	    check_redraw(get_option_flags(opt_idx));
+    }
 
 #if defined(FEAT_VTP) && defined(FEAT_TERMGUICOLORS)
     if (did_swaptcap)
@@ -2498,3 +2574,94 @@ check_ff_value(char_u *p)
 {
     return check_opt_strings(p, p_ff_values, FALSE);
 }
+
+#if defined(FEAT_FULLSCREEN) || defined(PROTO)
+/*
+ * Read the 'fuoptions' option, set fuoptions_flags and fuoptions_bgcolor.
+ */
+    int
+check_fuoptions(void)
+{
+    unsigned	new_fuoptions_flags;
+    int		new_fuoptions_bgcolor;
+    char_u	*p;
+
+    new_fuoptions_flags = 0;
+    new_fuoptions_bgcolor = 0xFF000000;
+
+    for (p = p_fuoptions; *p; ++p)
+    {
+	int i, j, k;
+
+	for (i = 0; ASCII_ISALPHA(p[i]); ++i)
+	    ;
+	if (p[i] != NUL && p[i] != ',' && p[i] != ':')
+	    return FAIL;
+	if (i == 10 && STRNCMP(p, "background", 10) == 0)
+	{
+	    if (p[i] != ':')
+		return FAIL;
+	    i++;
+	    if (p[i] == NUL)
+		return FAIL;
+	    if (p[i] == '#')
+	    {
+		// explicit color (#aarrggbb)
+		i++;
+		for (j = i; j < i + 8 && vim_isxdigit(p[j]); ++j)
+		    ;
+		if (j < i + 8)
+		    return FAIL;    // less than 8 digits
+		if (p[j] != NUL && p[j] != ',')
+		    return FAIL;
+		new_fuoptions_bgcolor = 0;
+		for (k = 0; k < 8; ++k)
+		    new_fuoptions_bgcolor = new_fuoptions_bgcolor * 16
+							   + hex2nr(p[i + k]);
+		i = j;
+		// mark bgcolor as an explicit argb color
+		new_fuoptions_flags &= ~FUOPT_BGCOLOR_HLGROUP;
+	    }
+	    else
+	    {
+		char_u hg_term; // character terminating highlight group string
+                                // in 'background' option
+
+		// highlight group name
+		for (j = i; ASCII_ISALPHA(p[j]); ++j)
+		    ;
+		if (p[j] != NUL && p[j] != ',')
+		    return FAIL;
+		hg_term = p[j];
+		p[j] = NUL;     // temporarily terminate string
+		new_fuoptions_bgcolor = syn_name2id((char_u*)(p + i));
+		p[j] = hg_term; // restore string
+		if (! new_fuoptions_bgcolor)
+		    return FAIL;
+		i = j;
+		// mark bgcolor as highlight group id
+		new_fuoptions_flags |= FUOPT_BGCOLOR_HLGROUP;
+	    }
+	}
+	else if (i == 7 && STRNCMP(p, "maxhorz", 7) == 0)
+	    new_fuoptions_flags |= FUOPT_MAXHORZ;
+	else if (i == 7 && STRNCMP(p, "maxvert", 7) == 0)
+	    new_fuoptions_flags |= FUOPT_MAXVERT;
+	else
+	    return FAIL;
+	p += i;
+	if (*p == NUL)
+	    break;
+	if (*p == ':')
+	    return FAIL;
+    }
+
+    fuoptions_flags = new_fuoptions_flags;
+    fuoptions_bgcolor = new_fuoptions_bgcolor;
+
+    // Let the GUI know, in case the background color has changed.
+    gui_mch_fuopt_update();
+
+    return OK;
+}
+#endif

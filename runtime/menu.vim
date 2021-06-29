@@ -2,7 +2,7 @@
 " You can also use this as a start for your own set of menus.
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2020 Mar 29
+" Last Change:	2020 Sep 28
 
 " Note that ":an" (short for ":anoremenu") is often used to make a menu work
 " in all modes and avoid side effects from mappings defined by the user.
@@ -82,10 +82,13 @@ if has("gui_macvim")
   an <silent> 9998.310 Window.Zoom		    <Nop>
   an <silent> 9998.311 Window.Zoom\ All		    <Nop>
   an <silent> 9998.320 Window.Toggle\ Full\ Screen\ Mode :set invfullscreen<CR>
+  tln <silent> 9998.320 Window.Toggle\ Full\ Screen\ Mode <C-W>:set invfullscreen<CR>
   an 9998.330 Window.-SEP1-			    <Nop>
   " TODO! Grey out if no tabs are visible.
-  an <silent> 9998.340 Window.Select\ Next\ Tab	    :tabnext<CR>
-  an <silent> 9998.350 Window.Select\ Previous\ Tab :tabprevious<CR>
+  an <silent> 9998.340 Window.Show\ Next\ Tab	    :tabnext<CR>
+  tln <silent> 9998.340 Window.Show\ Next\ Tab	<C-W>:tabnext<CR>
+  an <silent> 9998.350 Window.Show\ Previous\ Tab :tabprevious<CR>
+  tln <silent> 9998.350 Window.Show\ Previous\ Tab <C-W>:tabprevious<CR>
   an 9998.360 Window.-SEP2-			    <Nop>
   an <silent> 9998.370 Window.Bring\ All\ To\ Front <Nop>
   an <silent> 9998.380 Window.Stay\ in\ Front <Nop>
@@ -96,8 +99,18 @@ endif
 " Help menu
 if has("gui_macvim")
   an 9999.1 &Help.MacVim\ Help		    :h gui_mac<CR>
-  an <silent> 9999.2 Help.MacVim\ Website   <Nop>
-  an 9999.3 &Help.-sep0-		    <Nop>
+  tln 9999.1 &Help.MacVim\ Help		    <C-W>:h gui_mac<CR>
+  an <silent> 9999.2 &Help.MacVim\ Website   <Nop>
+  an 9999.3 &Help.Release\ Notes        <Cmd>silent !open https://github.com/macvim-dev/macvim/releases<CR>
+  tln 9999.3 &Help.Release\ Notes        <Cmd>silent !open https://github.com/macvim-dev/macvim/releases<CR>
+  an 9999.4 &Help.-sep0-		    <Nop>
+endif
+if has("gui_macvim")
+  " Run vimtutor in GUI mode. Need to make sure to override the PATH so we use
+  " this app instead of accidentally opening another installed Vim/MacVim.
+  an 9999.5 &Help.Vim\ Tutor       :silent !PATH="$VIM/../../bin":/usr/bin:/bin:/usr/sbin:/sbin $VIM/../../bin/vimtutor -g&<CR>
+  tln 9999.5 &Help.Vim\ Tutor      <C-W>:silent !PATH="$VIM/../../bin":/usr/bin:/bin:/usr/sbin:/sbin $VIM/../../bin/vimtutor -g&<CR>
+  an 9999.6 &Help.-sep-vim-tutor-  <Nop>
 endif
 an 9999.10 &Help.&Overview<Tab><F1>	:help<CR>
 an 9999.20 &Help.&User\ Manual		:help usr_toc<CR>
@@ -111,6 +124,21 @@ an 9999.70 &Help.O&rphans		:help kcc<CR>
 an 9999.75 &Help.-sep2-			<Nop>
 an 9999.80 &Help.&Version		:version<CR>
 an 9999.90 &Help.&About			:intro<CR>
+
+if exists(':tlmenu')
+  tlnoremenu 9999.10 &Help.&Overview<Tab><F1>		<C-W>:help<CR>
+  tlnoremenu 9999.20 &Help.&User\ Manual		<C-W>:help usr_toc<CR>
+  tlnoremenu 9999.30 &Help.&How-To\ Links		<C-W>:help how-to<CR>
+  tlnoremenu <silent> 9999.40 &Help.&Find\.\.\.		<C-W>:call <SID>Helpfind()<CR>
+  tlnoremenu 9999.45 &Help.-sep1-			<Nop>
+  tlnoremenu 9999.50 &Help.&Credits			<C-W>:help credits<CR>
+  tlnoremenu 9999.60 &Help.Co&pying			<C-W>:help copying<CR>
+  tlnoremenu 9999.70 &Help.&Sponsor/Register		<C-W>:help sponsor<CR>
+  tlnoremenu 9999.70 &Help.O&rphans			<C-W>:help kcc<CR>
+  tlnoremenu 9999.75 &Help.-sep2-			<Nop>
+  tlnoremenu 9999.80 &Help.&Version			<C-W>:version<CR>
+  tlnoremenu 9999.90 &Help.&About			<C-W>:intro<CR>
+endif
 
 fun! s:Helpfind()
   if !exists("g:menutrans_help_dialog")
@@ -130,13 +158,15 @@ endfun
 if has("gui_macvim")
   an <silent> 10.290 &File.New\ Window		    <Nop>
   an  10.295 &File.New\ Tab			    :tabnew<CR>
-  an <silent> 10.310 &File.Open\.\.\.		    <Nop>
+  tln 10.295 &File.New\ Tab			    <C-W>:tabnew<CR>
+  an <silent> 10.310 &File.Open…		    <Nop>
   an <silent> 10.325 &File.Open\ Recent		    <Nop>
   an 10.328 &File.-SEP0-			    <Nop>
   an <silent> 10.330 &File.Close\ Window<Tab>:qa    :conf qa<CR>
-  an <silent> 10.332 &File.Close		    :conf q<CR>
+  tln <silent> 10.330 &File.Close\ Window<Tab>:qa   <C-W>:conf qa<CR>
+  an <silent> 10.332 &File.Close<Tab>:q		    :conf q<CR>
   an <silent> 10.341 &File.Save\ All		    :browse conf wa<CR>
-  an 10.350 &File.Save\ As\.\.\.<Tab>:sav	    :browse confirm saveas<CR>
+  an 10.350 &File.Save\ As…<Tab>:sav	    :browse confirm saveas<CR>
 else
 endif
 if !has("gui_macvim")
@@ -155,7 +185,9 @@ if !has("gui_macvim")
 endif
 an 10.335 &File.-SEP1-				<Nop>
 an <silent> 10.340 &File.&Save<Tab>:w		:if expand("%") == ""<Bar>browse confirm w<Bar>else<Bar>confirm w<Bar>endif<CR>
-an 10.350 &File.Save\ &As\.\.\.<Tab>:sav	:browse confirm saveas<CR>
+if !has("gui_macvim")
+  an 10.350 &File.Save\ &As\.\.\.<Tab>:sav	:browse confirm saveas<CR>
+endif
 
 if has("diff")
   an 10.400 &File.-SEP2-			<Nop>
@@ -230,9 +262,9 @@ if has("win32") || has("gui_gtk") || has("gui_kde") || has("gui_motif")
   vunmenu	 &Edit.Find\ and\ Rep&lace\.\.\.
   vnoremenu <silent>	 &Edit.Find\ and\ Rep&lace\.\.\. y:promptrepl <C-R>=<SID>FixFText()<CR><CR>
 elseif has("gui_macvim")
-  an <silent> 20.410.10 &Edit.Find.Find\.\.\.	:promptfind<CR>
-  vunmenu &Edit.Find.Find\.\.\.
-  vnoremenu <silent> &Edit.Find.Find\.\.\.	y:promptfind <C-R>=<SID>FixFText()<CR><CR>
+  an <silent> 20.410.10 &Edit.Find.Find…	:promptfind<CR>
+  vunmenu &Edit.Find.Find…
+  vnoremenu <silent> &Edit.Find.Find…	y:promptfind <C-R>=<SID>FixFText()<CR><CR>
   an 20.410.20 &Edit.Find.Find\ Next			<Nop>
   an 20.410.30 &Edit.Find.Find\ Previous		<Nop>
   vnoremenu 20.410.35 &Edit.Find.Use\ Selection\ for\ Find	<Nop>
@@ -469,7 +501,6 @@ elseif has("gui_macvim")
   an 20.475.20 &Edit.Font.-SEP5-               <Nop>
   an 20.475.30 &Edit.Font.Bigger               <Nop>
   an 20.475.40 &Edit.Font.Smaller              <Nop>
-  an 20.480 &Edit.Emoji\ &&\ Symbols           <Nop>
 endif
 
 " Programming menu
@@ -508,12 +539,12 @@ if has("spell")
   an 40.335.260 &Tools.&Spelling.Set\ Language\ to\ "en_us"	:set spl=en_us spell<CR>
   an <silent> 40.335.270 &Tools.&Spelling.&Find\ More\ Languages	:call <SID>SpellLang()<CR>
 
-  let s:undo_spellang = ['aun &Tools.&Spelling.&Find\ More\ Languages']
+  let s:undo_spelllang = ['aun &Tools.&Spelling.&Find\ More\ Languages']
   func s:SpellLang()
-    for cmd in s:undo_spellang
+    for cmd in s:undo_spelllang
       exe "silent! " . cmd
     endfor
-    let s:undo_spellang = []
+    let s:undo_spelllang = []
 
     if &enc == "iso-8859-15"
       let enc = "latin1"
@@ -536,7 +567,7 @@ if has("spell")
 	  let found += 1
 	  let menuname = '&Tools.&Spelling.' . escape(g:menutrans_set_lang_to, "\\. \t|") . '\ "' . nm . '"'
 	  exe 'an 40.335.' . n . ' ' . menuname . ' :set spl=' . nm . ' spell<CR>'
-	  let s:undo_spellang += ['aun ' . menuname]
+	  let s:undo_spelllang += ['aun ' . menuname]
 	endif
 	let n += 10
       endfor
@@ -1272,14 +1303,14 @@ if has("gui_macvim")
   "
   macm File.New\ Window				key=<D-n> action=newWindow:
   macm File.New\ Tab				key=<D-t>
-  macm File.Open\.\.\.				key=<D-o> action=fileOpen:
+  macm File.Open…				key=<D-o> action=fileOpen:
   macm File.Open\ Tab\.\.\.<Tab>:tabnew		key=<D-T>
   macm File.Open\ Recent			action=recentFilesDummy:
   macm File.Close\ Window<Tab>:qa		key=<D-W>
   macm File.Close				key=<D-w> action=performClose:
   macm File.Save<Tab>:w				key=<D-s>
   macm File.Save\ All				key=<D-M-s> alt=YES
-  macm File.Save\ As\.\.\.<Tab>:sav		key=<D-S>
+  macm File.Save\ As…<Tab>:sav		key=<D-S>
   macm File.Print				key=<D-p>
 
   macm Edit.Undo<Tab>u				key=<D-z> action=undo:
@@ -1288,14 +1319,13 @@ if has("gui_macvim")
   macm Edit.Copy<Tab>"+y			key=<D-c> action=copy:
   macm Edit.Paste<Tab>"+gP			key=<D-v> action=paste:
   macm Edit.Select\ All<Tab>ggVG		key=<D-a> action=selectAll:
-  macm Edit.Find.Find\.\.\.			key=<D-f>
+  macm Edit.Find.Find…			key=<D-f>
   macm Edit.Find.Find\ Next			key=<D-g> action=findNext:
   macm Edit.Find.Find\ Previous			key=<D-G> action=findPrevious:
   macm Edit.Find.Use\ Selection\ for\ Find	key=<D-e> action=useSelectionForFind:
   macm Edit.Font.Show\ Fonts			action=orderFrontFontPanel:
   macm Edit.Font.Bigger				key=<D-=> action=fontSizeUp:
   macm Edit.Font.Smaller			key=<D--> action=fontSizeDown:
-  macm Edit.Emoji\ &&\ Symbols			key=<D-C-Space> action=orderFrontCharacterPalette:
 
   macm Tools.Spelling.To\ Next\ Error<Tab>]s	key=<D-;>
   macm Tools.Spelling.Suggest\ Corrections<Tab>z=   key=<D-:>
@@ -1311,8 +1341,8 @@ if has("gui_macvim")
   macm Window.Zoom		key=<D-C-z>	action=performZoom:
   macm Window.Zoom\ All		key=<D-M-C-z>	action=zoomAll:		alt=YES
   macm Window.Toggle\ Full\ Screen\ Mode	key=<D-C-f>
-  macm Window.Select\ Next\ Tab			key=<D-}>
-  macm Window.Select\ Previous\ Tab		key=<D-{>
+  macm Window.Show\ Next\ Tab			key=<D-}>
+  macm Window.Show\ Previous\ Tab		key=<D-{>
   macm Window.Bring\ All\ To\ Front		action=arrangeInFront:
   macm Window.Stay\ in\ Front 	action=stayInFront:
   macm Window.Stay\ in\ Back 	action=stayInBack:
@@ -1327,29 +1357,43 @@ if has("touchbar")
   " 1. Smart fullscreen icon that toggles between going full screen or not.
 
   if !exists("g:macvim_default_touchbar_fullscreen") || g:macvim_default_touchbar_fullscreen
-    an icon=NSTouchBarEnterFullScreenTemplate 1.10 TouchBar.EnterFullScreen :set fullscreen<CR>
+    an icon=NSTouchBarEnterFullScreenTemplate 1.20 TouchBar.EnterFullScreen :set fullscreen<CR>
+    tln icon=NSTouchBarEnterFullScreenTemplate 1.20 TouchBar.EnterFullScreen <C-W>:set fullscreen<CR>
   endif
 
   let s:touchbar_fullscreen=0
   func! s:SetupFullScreenTouchBar()
     if &fullscreen && s:touchbar_fullscreen != 1
       silent! aun TouchBar.EnterFullScreen
+      silent! tlun TouchBar.EnterFullScreen
       if !exists("g:macvim_default_touchbar_fullscreen") || g:macvim_default_touchbar_fullscreen
-        an icon=NSTouchBarExitFullScreenTemplate 1.10 TouchBar.ExitFullScreen :set nofullscreen<CR>
+        an icon=NSTouchBarExitFullScreenTemplate 1.20 TouchBar.ExitFullScreen :set nofullscreen<CR>
+        tln icon=NSTouchBarExitFullScreenTemplate 1.20 TouchBar.ExitFullScreen <C-W>:set nofullscreen<CR>
       endif
       let s:touchbar_fullscreen = 1
     elseif !&fullscreen && s:touchbar_fullscreen != 0
       silent! aun TouchBar.ExitFullScreen
+      silent! tlun TouchBar.ExitFullScreen
       if !exists("g:macvim_default_touchbar_fullscreen") || g:macvim_default_touchbar_fullscreen
-        an icon=NSTouchBarEnterFullScreenTemplate 1.10 TouchBar.EnterFullScreen :set fullscreen<CR>
+        an icon=NSTouchBarEnterFullScreenTemplate 1.20 TouchBar.EnterFullScreen :set fullscreen<CR>
+        tln icon=NSTouchBarEnterFullScreenTemplate 1.20 TouchBar.EnterFullScreen <C-W>:set fullscreen<CR>
       endif
       let s:touchbar_fullscreen = 0
     endif
   endfunc
   aug FullScreenTouchBar
     au!
-    au VimEnter,VimResized * call <SID>SetupFullScreenTouchBar()
+    au VimEnter * call <SID>SetupFullScreenTouchBar()
+    au OptionSet fullscreen call <SID>SetupFullScreenTouchBar()
   aug END
+
+  " 2. Character (i.e. emojis) picker. Only in modes where user is actively
+  " entering text.
+  if !exists("g:macvim_default_touchbar_characterpicker") || g:macvim_default_touchbar_characterpicker
+    inoremenu 1.40 TouchBar.-characterpicker- <Nop>
+    cnoremenu 1.40 TouchBar.-characterpicker- <Nop>
+    tlnoremenu 1.40 TouchBar.-characterpicker- <Nop>
+  endif
 endif
 
 " vim: set sw=2 :

@@ -3,16 +3,24 @@
 
 # source files for all source archives
 SRC_ALL =	\
-		.gitignore \
+		.cirrus.yml \
+		.coveralls.yml \
 		.gitattributes \
+		.github/CODEOWNERS \
+		.github/workflows/ci.yml \
+		.github/workflows/codeql-analysis.yml \
+		.gitignore \
 		.hgignore \
 		.lgtm.yml \
 		.travis.yml \
-		.cirrus.yml \
-		appveyor.yml \
+		.appveyor.yml \
+		.codecov.yml \
 		ci/appveyor.bat \
+		ci/build-snd-dummy.sh \
+		ci/config.mk*.sed \
 		ci/if_ver*.vim \
 		ci/load-snd-dummy.sh \
+		ci/setup-xvfb.sh \
 		src/Make_all.mak \
 		src/README.md \
 		src/alloc.h \
@@ -43,6 +51,7 @@ SRC_ALL =	\
 		src/drawline.c \
 		src/drawscreen.c \
 		src/edit.c \
+		src/errors.h \
 		src/eval.c \
 		src/evalbuffer.c \
 		src/evalfunc.c \
@@ -59,6 +68,7 @@ SRC_ALL =	\
 		src/fileio.c \
 		src/filepath.c \
 		src/findfile.c \
+		src/float.c \
 		src/fold.c \
 		src/getchar.c \
 		src/globals.h \
@@ -67,18 +77,22 @@ SRC_ALL =	\
 		src/gui_beval.c \
 		src/hardcopy.c \
 		src/hashtab.c \
+		src/help.c \
 		src/highlight.c \
 		src/indent.c \
 		src/insexpand.c \
+		src/job.c \
 		src/json.c \
 		src/json_test.c \
 		src/kword_test.c \
 		src/list.c \
+		src/locale.c \
 		src/keymap.h \
 		src/macros.h \
 		src/main.c \
 		src/map.c \
 		src/mark.c \
+		src/match.c \
 		src/mbyte.c \
 		src/memfile.c \
 		src/memfile_test.c \
@@ -128,8 +142,11 @@ SRC_ALL =	\
 		src/term.h \
 		src/termlib.c \
 		src/testing.c \
+		src/textformat.c \
+		src/textobject.c \
 		src/textprop.c \
 		src/time.c \
+		src/typval.c \
 		src/ui.c \
 		src/undo.c \
 		src/usercmd.c \
@@ -141,6 +158,7 @@ SRC_ALL =	\
 		src/vim9compile.c \
 		src/vim9execute.c \
 		src/vim9script.c \
+		src/vim9type.c \
 		src/viminfo.c \
 		src/winclip.c \
 		src/window.c \
@@ -153,6 +171,7 @@ SRC_ALL =	\
 		src/testdir/*.py \
 		src/testdir/lsan-suppress.txt \
 		src/testdir/sautest/autoload/*.vim \
+		src/testdir/testluaplugin/lua/testluaplugin/*.lua \
 		src/testdir/check.vim \
 		src/testdir/gui_init.vim \
 		src/testdir/gui_preinit.vim \
@@ -162,13 +181,13 @@ SRC_ALL =	\
 		src/testdir/setup.vim \
 		src/testdir/setup_gui.vim \
 		src/testdir/shared.vim \
+		src/testdir/vim9.vim \
+		src/testdir/script_util.vim \
 		src/testdir/summarize.vim \
 		src/testdir/term_util.vim \
 		src/testdir/view_util.vim \
 		src/testdir/test[0-9]*.ok \
-		src/testdir/test[0-9]*a.ok \
-		src/testdir/test_[a-z]*.ok \
-		src/testdir/test49.vim \
+		src/testdir/test77a.ok \
 		src/testdir/test83-tags? \
 		src/testdir/test77a.com \
 		src/testdir/test_*.vim \
@@ -182,8 +201,6 @@ SRC_ALL =	\
 		src/testdir/python_after/*.py \
 		src/testdir/python_before/*.py \
 		src/testdir/pyxfile/*.py \
-		src/testdir/bench*.in \
-		src/testdir/bench*.vim \
 		src/testdir/dumps/*.dump \
 		src/testdir/samples/*.txt \
 		src/testdir/samples/test000 \
@@ -230,20 +247,25 @@ SRC_ALL =	\
 		src/proto/fileio.pro \
 		src/proto/filepath.pro \
 		src/proto/findfile.pro \
+		src/proto/float.pro \
 		src/proto/fold.pro \
 		src/proto/getchar.pro \
 		src/proto/gui.pro \
 		src/proto/gui_beval.pro \
 		src/proto/hardcopy.pro \
 		src/proto/hashtab.pro \
+		src/proto/help.pro \
 		src/proto/highlight.pro \
 		src/proto/indent.pro \
 		src/proto/insexpand.pro \
+		src/proto/job.pro \
 		src/proto/json.pro \
 		src/proto/list.pro \
+		src/proto/locale.pro \
 		src/proto/main.pro \
 		src/proto/map.pro \
 		src/proto/mark.pro \
+		src/proto/match.pro \
 		src/proto/mbyte.pro \
 		src/proto/memfile.pro \
 		src/proto/memline.pro \
@@ -280,8 +302,11 @@ SRC_ALL =	\
 		src/proto/terminal.pro \
 		src/proto/termlib.pro \
 		src/proto/testing.pro \
+		src/proto/textformat.pro \
+		src/proto/textobject.pro \
 		src/proto/textprop.pro \
 		src/proto/time.pro \
+		src/proto/typval.pro \
 		src/proto/ui.pro \
 		src/proto/undo.pro \
 		src/proto/usercmd.pro \
@@ -290,6 +315,7 @@ SRC_ALL =	\
 		src/proto/vim9compile.pro \
 		src/proto/vim9execute.pro \
 		src/proto/vim9script.pro \
+		src/proto/vim9type.pro \
 		src/proto/viminfo.pro \
 		src/proto/winclip.pro \
 		src/proto/window.pro \
@@ -298,10 +324,12 @@ SRC_ALL =	\
 		src/libvterm/LICENSE \
 		src/libvterm/Makefile \
 		src/libvterm/README \
+		src/libvterm/CONTRIBUTING \
 		src/libvterm/tbl2inc_c.pl \
 		src/libvterm/vterm.pc.in \
 		src/libvterm/doc/URLs \
 		src/libvterm/doc/seqs.txt \
+		src/libvterm/find-wide-chars.pl \
 		src/libvterm/include/vterm.h \
 		src/libvterm/include/vterm_keycodes.h \
 		src/libvterm/src/encoding.c \
@@ -309,6 +337,7 @@ SRC_ALL =	\
 		src/libvterm/src/encoding/DECdrawing.tbl \
 		src/libvterm/src/encoding/uk.inc \
 		src/libvterm/src/encoding/uk.tbl \
+		src/libvterm/src/fullwidth.inc \
 		src/libvterm/src/keyboard.c \
 		src/libvterm/src/mouse.c \
 		src/libvterm/src/parser.c \
@@ -339,16 +368,18 @@ SRC_ALL =	\
 		src/libvterm/t/27state_reset.test \
 		src/libvterm/t/28state_dbl_wh.test \
 		src/libvterm/t/29state_fallback.test \
-		src/libvterm/t/30pen.test \
-		src/libvterm/t/40screen_ascii.test \
-		src/libvterm/t/41screen_unicode.test \
-		src/libvterm/t/42screen_damage.test \
-		src/libvterm/t/43screen_resize.test \
-		src/libvterm/t/44screen_pen.test \
-		src/libvterm/t/45screen_protect.test \
-		src/libvterm/t/46screen_extent.test \
-		src/libvterm/t/47screen_dbl_wh.test \
-		src/libvterm/t/48screen_termprops.test \
+		src/libvterm/t/30state_pen.test \
+		src/libvterm/t/31state_rep.test \
+		src/libvterm/t/32state_flow.test \
+		src/libvterm/t/60screen_ascii.test \
+		src/libvterm/t/61screen_unicode.test \
+		src/libvterm/t/62screen_damage.test \
+		src/libvterm/t/63screen_resize.test \
+		src/libvterm/t/64screen_pen.test \
+		src/libvterm/t/65screen_protect.test \
+		src/libvterm/t/66screen_extent.test \
+		src/libvterm/t/67screen_dbl_wh.test \
+		src/libvterm/t/68screen_termprops.test \
 		src/libvterm/t/90vttest_01-movement-1.test \
 		src/libvterm/t/90vttest_01-movement-2.test \
 		src/libvterm/t/90vttest_01-movement-3.test \
@@ -450,6 +481,7 @@ SRC_UNIX =	\
 
 # source files for both DOS and Unix
 SRC_DOS_UNIX =	\
+		src/gui_xim.c \
 		src/if_cscope.c \
 		src/if_cscope.h \
 		src/if_lua.c \
@@ -462,6 +494,7 @@ SRC_DOS_UNIX =	\
 		src/if_py_both.h \
 		src/if_ruby.c \
 		src/if_tcl.c \
+		src/proto/gui_xim.pro \
 		src/proto/if_cscope.pro \
 		src/proto/if_lua.pro \
 		src/proto/if_mzsch.pro \
@@ -536,7 +569,7 @@ SRC_DOS =	\
 		src/uninstall.c \
 		src/vim.def \
 		src/vim.rc \
-		src/gvim.exe.mnf \
+		src/vim.manifest \
 		src/vimrun.c \
 		src/xpm_w32.c \
 		src/xpm_w32.h \
@@ -597,7 +630,7 @@ SRC_AMI =	\
 		README_amisrc.txt.info \
 		src.info \
 		src/INSTALLami.txt \
-		src/Make_morph.mak \
+		src/Make_ami.mak \
 		src/os_amiga.c \
 		src/os_amiga.h \
 		src/proto/os_amiga.pro \
@@ -607,8 +640,9 @@ SRC_AMI =	\
 
 # source files for Haiku (also in the extra archive)
 SRC_HAIKU =	\
+		README_haiku.txt \
 		src/os_haiku.h \
-		src/os_haiku.rdef \
+		src/os_haiku.rdef.in \
 		src/gui_haiku.cc \
 		src/gui_haiku.h \
 		src/proto/gui_haiku.pro \
@@ -617,13 +651,11 @@ SRC_HAIKU =	\
 SRC_MAC =	\
 		src/INSTALLmac.txt \
 		src/dehqx.py \
-		src/gui_mac.c \
 		src/os_mac_rsrc/*.icns \
 		src/os_mac.h \
 		src/os_mac.rsr.hqx \
 		src/os_mac_conv.c \
 		src/os_macosx.m \
-		src/proto/gui_mac.pro \
 		src/proto/os_mac_conv.pro \
 
 # source files for VMS (in the extra archive)
@@ -659,14 +691,8 @@ SRC_EXTRA =	\
 		$(SRC_QNX) \
 		$(SRC_VMS) \
 		README_os390.txt \
-		src/Make_mint.mak \
 		src/infplist.xml \
 		src/link.390 \
-		src/os_beos.c \
-		src/os_beos.h \
-		src/os_beos.rsrc \
-		src/proto/os_beos.pro \
-		src/os_mint.h \
 		src/os_vms_fix.com \
 		src/toolbar.phi \
 
@@ -962,6 +988,8 @@ LANG_GEN = \
 		runtime/doc/*-pl.UTF-8.1 \
 		runtime/doc/*-ru.1 \
 		runtime/doc/*-ru.UTF-8.1 \
+		runtime/doc/*-tr.1 \
+		runtime/doc/*-tr.UTF-8.1 \
 		runtime/lang/README.txt \
 		runtime/lang/menu_*.vim \
 		runtime/keymap/README.txt \
@@ -1010,6 +1038,8 @@ LANG_SRC = \
 		src/po/README_mvc.txt \
 		src/po/check.vim \
 		src/po/cleanup.vim \
+		src/po/tojavascript.vim \
+		src/po/fixfilenames.vim \
 		src/po/Makefile \
 		src/po/Make_all.mak \
 		src/po/Make_cyg.mak \

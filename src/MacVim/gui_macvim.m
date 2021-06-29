@@ -19,9 +19,6 @@
 #import <Foundation/Foundation.h>
 
 
-// HACK! Used in gui.c to determine which string drawing code to use.
-int use_gui_macvim_draw_string = 1;
-
 static int use_graphical_sign = 0;
 
 static BOOL is_macos_high_sierra_or_later = NO;
@@ -195,7 +192,6 @@ gui_macvim_after_fork_init()
     }
     if (keyValid) {
         ASLogInfo(@"Use renderer=%ld", val);
-        use_gui_macvim_draw_string = (val != MMRendererCoreText);
 
         // For now only the Core Text renderer knows how to render graphical
         // signs.
@@ -347,9 +343,16 @@ gui_mch_update(void)
 
     CFAbsoluteTime nowTime = CFAbsoluteTimeGetCurrent();
     if (nowTime - lastTime > 1.0 / 30) {
-        [[MMBackend sharedInstance] update];
+        gui_macvim_update();
         lastTime = nowTime;
     }
+}
+
+
+    void
+gui_macvim_update(void)
+{
+    [[MMBackend sharedInstance] update];
 }
 
 
@@ -785,7 +788,15 @@ gui_mch_add_menu_item(vimmenu_T *menu, int idx)
     int modifierMask = vimModMaskToEventModifierFlags(menu->mac_mods);
     char_u *icon = NULL;
 
-    if (menu_is_toolbar(menu->parent->name)) {
+    vimmenu_T *rootMenu = menu;
+    while (rootMenu->parent) {
+        rootMenu = rootMenu->parent;
+    }
+    if (menu_is_toolbar(rootMenu->name)) {
+        //
+        // Find out what file to load for the icon. This is only relevant for the
+        // toolbar and TouchBar.
+        //
         char_u fname[MAXPATHL];
 
         // Try to use the icon=.. argument
@@ -842,9 +853,9 @@ gui_mch_destroy_menu(vimmenu_T *menu)
     void
 gui_mch_menu_grey(vimmenu_T *menu, int grey)
 {
-    /* Only update menu if the 'grey' state has changed to avoid having to pass
-     * lots of unnecessary data to MacVim.  (Skipping this test makes MacVim
-     * pause noticably on mode changes. */
+    // Only update menu if the 'grey' state has changed to avoid having to pass
+    // lots of unnecessary data to MacVim.  (Skipping this test makes MacVim
+    // pause noticably on mode changes.
     NSArray *desc = descriptor_for_menu(menu);
     if (menu->was_grey == grey)
         return;
@@ -884,6 +895,22 @@ gui_mch_show_popupmenu(vimmenu_T *menu)
 
 
 /*
+ * Update a menu's tooltip.
+ */
+    void
+gui_mch_menu_set_tip(vimmenu_T *menu)
+{
+    char_u *tip = menu->strings[MENU_INDEX_TIP];
+    NSArray *desc = descriptor_for_menu(menu);
+    [[MMBackend sharedInstance] queueMessage:UpdateMenuItemTooltipMsgID properties:
+        [NSDictionary dictionaryWithObjectsAndKeys:
+            desc, @"descriptor",
+            [NSString stringWithVimString:tip], @"tip",
+            nil]];
+}
+
+
+/*
  * This is called when a :popup command is executed.
  */
     void
@@ -916,7 +943,7 @@ gui_mch_draw_menubar(void)
 
 
     void
-gui_mch_enable_menu(int flag)
+gui_mch_enable_menu(int flag UNUSED)
 {
     // The (main) menu is always enabled in Mac OS X.
 }
@@ -1041,7 +1068,7 @@ gui_mch_init_font(char_u *font_name, int fontset)
  * Set the current text font.
  */
     void
-gui_mch_set_font(GuiFont font)
+gui_mch_set_font(GuiFont font UNUSED)
 {
     // Font selection is done inside MacVim...nothing here to do.
 }
@@ -1113,7 +1140,7 @@ gui_macvim_font_with_name(char_u *name)
     void
 gui_mch_create_scrollbar(
 	scrollbar_T *sb,
-	int orient)	/* SBAR_VERT or SBAR_HORIZ */
+	int orient UNUSED)	/* SBAR_VERT or SBAR_HORIZ */
 {
     [[MMBackend sharedInstance] 
             createScrollbarWithIdentifier:(int32_t)sb->ident type:sb->type];
@@ -1158,6 +1185,24 @@ gui_mch_set_scrollbar_pos(
 }
 
 
+    int
+gui_mch_get_scrollbar_xpadding(void)
+{
+    // TODO: Calculate the padding for adjust scrollbar position when the
+    // Window is maximized.
+    return 0;
+}
+
+
+    int
+gui_mch_get_scrollbar_ypadding(void)
+{
+    // TODO: Calculate the padding for adjust scrollbar position when the
+    // Window is maximized.
+    return 0;
+}
+
+
     void
 gui_mch_set_scrollbar_thumb(
 	scrollbar_T *sb,
@@ -1192,7 +1237,7 @@ gui_mch_draw_hollow_cursor(guicolor_T color)
  * Draw part of a cursor, only w pixels wide, and h pixels high.
  */
     void
-gui_mch_draw_part_cursor(int w, int h, guicolor_T color)
+gui_mch_draw_part_cursor(int w UNUSED, int h UNUSED, guicolor_T color)
 {
     // HACK!  'w' and 'h' are always 1 since we do not tell Vim about the exact
     // font dimensions.  Thus these parameters are useless.  Instead we look at
@@ -1279,14 +1324,14 @@ gui_mch_stop_blink(int may_call_gui_update_cursor)
  * Get current mouse coordinates in text window.
  */
     void
-gui_mch_getmouse(int *x, int *y)
+gui_mch_getmouse(int *x UNUSED, int *y UNUSED)
 {
     ASLogInfo(@"Not implemented!");
 }
 
 
     void
-gui_mch_setmouse(int x, int y)
+gui_mch_setmouse(int x UNUSED, int y UNUSED)
 {
     ASLogInfo(@"Not implemented!");
 }
@@ -1304,6 +1349,8 @@ mch_set_mouse_shape(int shape)
 // -- Input Method ----------------------------------------------------------
 
 #if defined(FEAT_EVAL)
+void call_imactivatefunc(int active);
+int call_imstatusfunc(void);
 # ifdef FEAT_GUI
 #  define USE_IMACTIVATEFUNC (!gui.in_use && *p_imaf != NUL)
 #  define USE_IMSTATUSFUNC (!gui.in_use && *p_imsf != NUL)
@@ -1338,13 +1385,10 @@ im_set_active(int active)
     if (USE_IMACTIVATEFUNC)
     {
         if (active != im_get_status())
-        {
             call_imactivatefunc(active);
-        }
         return;
     }
 #endif
-
     // Tell frontend to enable/disable IM (called e.g. when the mode changes).
     if (!p_imdisable) {
         int msgid = active ? ActivateKeyScriptMsgID : DeactivateKeyScriptMsgID;
@@ -1357,11 +1401,10 @@ im_set_active(int active)
     int
 im_get_status(void)
 {
-#ifdef FEAT_EVAL
+#if defined(FEAT_EVAL)
     if (USE_IMSTATUSFUNC)
         return call_imstatusfunc();
 #endif
-
     return [[MMBackend sharedInstance] imState];
 }
 
@@ -1373,7 +1416,7 @@ im_get_status(void)
 #ifdef FIND_REPLACE_DIALOG
 
     static void
-macvim_find_and_replace(char_u *arg, BOOL replace)
+macvim_find_and_replace(char_u *arg, BOOL replace UNUSED)
 {
     // TODO: Specialized dialog for find without replace?
     int wholeWord = FALSE;
@@ -1552,7 +1595,7 @@ gui_mch_dialog(
     char_u	*buttons,
     int		dfltbutton,
     char_u	*textfield,
-    int         ex_cmd)     // UNUSED
+    int		ex_cmd UNUSED)
 {
     ASLogDebug(@"type=%d title='%s' message='%s' buttons='%s' dfltbutton=%d "
                "textfield='%s'", type, title, message, buttons, dfltbutton,
@@ -1616,8 +1659,9 @@ gui_mch_dialog(
 
 
     void
-gui_mch_flash(int msec)
+gui_mch_flash(int msec UNUSED)
 {
+    // NOP
 }
 
 
@@ -1697,6 +1741,7 @@ gui_mch_haskey(char_u *name)
     void
 gui_mch_iconify(void)
 {
+    // NOP
 }
 
 
@@ -1765,8 +1810,9 @@ gui_mch_get_winpos(int *x, int *y)
 
 
     void
-gui_mch_set_text_area_pos(int x, int y, int w, int h)
+gui_mch_set_text_area_pos(int x UNUSED, int y UNUSED, int w UNUSED, int h UNUSED)
 {
+    // NOP
 }
 
 
@@ -1795,14 +1841,15 @@ gui_mch_settitle(char_u *title, char_u *icon)
 
 
     void
-gui_mch_toggle_tearoffs(int enable)
+gui_mch_toggle_tearoffs(int enable UNUSED)
 {
+    // NOP
 }
 
 
 
     void
-gui_mch_enter_fullscreen(int fuoptions_flags, guicolor_T bg)
+gui_mch_enter_fullscreen(guicolor_T bg)
 {
     [[MMBackend sharedInstance] enterFullScreen:fuoptions_flags background:bg];
 }
@@ -1970,8 +2017,14 @@ serverRegisterName(char_u *name)
  * Returns 0 for OK, negative for an error.
  */
     int
-serverSendToVim(char_u *name, char_u *cmd, char_u **result,
-        int *port, int asExpr, int timeout, int silent)
+serverSendToVim(
+    char_u	*name,
+    char_u	*cmd,
+    char_u	**result,
+    int		*port,
+    int		asExpr,
+    int		timeout UNUSED,
+    int		silent)
 {
     name = CONVERT_TO_UTF8(name);
     cmd = CONVERT_TO_UTF8(cmd);
@@ -2192,12 +2245,12 @@ odb_end(void)
 
 
     char_u *
-get_macaction_name(expand_T *xp, int idx)
+get_macaction_name(expand_T *xp UNUSED, int idx)
 {
     static char_u *str = NULL;
     NSDictionary *actionDict = [[MMBackend sharedInstance] actionDict];
 
-    if (nil == actionDict || idx < 0 || idx >= [actionDict count])
+    if (nil == actionDict || idx < 0 || (size_t)idx >= [actionDict count])
         return NULL;
 
     NSString *string = [[actionDict allKeys] objectAtIndex:idx];
@@ -2292,7 +2345,7 @@ specialKeyToNSKey(int key)
         { K_PAGEDOWN, NSPageDownFunctionKey }
     };
 
-    int i;
+    size_t i;
     for (i = 0; i < sizeof(sp2ns)/sizeof(sp2ns[0]); ++i) {
         if (sp2ns[i].special == key)
             return sp2ns[i].nskey;
@@ -2420,7 +2473,7 @@ gui_mch_destroy_sign(void *sign)
 
     BalloonEval *
 gui_mch_create_beval_area(
-    void	*target,
+    void	*target UNUSED,
     char_u	*mesg,
     void	(*mesgCB)(BalloonEval *, int),
     void	*clientData)
@@ -2439,18 +2492,13 @@ gui_mch_create_beval_area(
 }
 
     void
-gui_mch_enable_beval_area(BalloonEval *beval)
+gui_mch_enable_beval_area(BalloonEval *beval UNUSED)
 {
-    // Set the balloon delay when enabling balloon eval.
-    float delay = p_bdlay/1000.0f - MMBalloonEvalInternalDelay;
-    if (delay < 0) delay = 0;
-    [[MMBackend sharedInstance] queueMessage:SetTooltipDelayMsgID properties:
-        [NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:delay]
-                                    forKey:@"delay"]];
+    // NOP
 }
 
     void
-gui_mch_disable_beval_area(BalloonEval *beval)
+gui_mch_disable_beval_area(BalloonEval *beval UNUSED)
 {
     // NOTE: An empty tool tip indicates that the tool tip window should hide.
     [[MMBackend sharedInstance] queueMessage:SetTooltipMsgID properties:
@@ -2463,6 +2511,9 @@ gui_mch_disable_beval_area(BalloonEval *beval)
     void
 gui_mch_post_balloon(BalloonEval *beval, char_u *mesg)
 {
+    vim_free(beval->msg);
+    beval->msg = mesg == NULL ? NULL : vim_strsave(mesg);
+
     NSString *toolTip = [NSString stringWithVimString:mesg];
     [[MMBackend sharedInstance] setLastToolTip:toolTip];
 }
@@ -2473,4 +2524,10 @@ gui_mch_post_balloon(BalloonEval *beval, char_u *mesg)
 gui_macvim_set_blur(int radius)
 {
     [[MMBackend sharedInstance] setBlurRadius:radius];
+}
+
+    void
+gui_macvim_set_background(int dark)
+{
+    [[MMBackend sharedInstance] setBackground:dark];
 }

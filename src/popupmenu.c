@@ -40,10 +40,6 @@ static int pum_win_width;
 // makes pum_visible() return FALSE even when there is a popup menu.
 static int pum_pretend_not_visible = FALSE;
 
-// When set the popup menu will redraw soon using the pum_win_ values. Do not
-// draw over the poup menu area to avoid flicker.
-static int pum_will_redraw = FALSE;
-
 static int pum_set_selected(int n, int repeat);
 
 #define PUM_DEF_HEIGHT 10
@@ -60,9 +56,12 @@ pum_compute_size(void)
     pum_extra_width = 0;
     for (i = 0; i < pum_size; ++i)
     {
-	w = vim_strsize(pum_array[i].pum_text);
-	if (pum_base_width < w)
-	    pum_base_width = w;
+	if (pum_array[i].pum_text != NULL)
+	{
+	    w = vim_strsize(pum_array[i].pum_text);
+	    if (pum_base_width < w)
+		pum_base_width = w;
+	}
 	if (pum_array[i].pum_kind != NULL)
 	{
 	    w = vim_strsize(pum_array[i].pum_kind) + 1;
@@ -358,6 +357,8 @@ pum_display(
 	// redo the positioning.  Limit this to two times, when there is not
 	// much room the window size will keep changing.
     } while (pum_set_selected(selected, redo_count) && ++redo_count <= 2);
+
+    pum_redraw();
 }
 
 /*
@@ -387,7 +388,7 @@ pum_under_menu(int row, int col)
 	    && row >= pum_row
 	    && row < pum_row + pum_height
 	    && col >= pum_col - 1
-	    && col < pum_col + pum_width;
+	    && col < pum_col + pum_width + pum_scrollbar;
 }
 
 /*
@@ -538,8 +539,23 @@ pum_redraw(void)
 			{
 			    if (st != NULL)
 			    {
-				screen_puts_len(st, (int)STRLEN(st), row, col,
-									attr);
+				int size = (int)STRLEN(st);
+				int cells = (*mb_string2cells)(st, size);
+
+				// only draw the text that fits
+				while (size > 0
+					  && col + cells > pum_width + pum_col)
+				{
+				    --size;
+				    if (has_mbyte)
+				    {
+					size -= (*mb_head_off)(st, st + size);
+					cells -= (*mb_ptr2cells)(st + size);
+				    }
+				    else
+					--cells;
+				}
+				screen_puts_len(st, size, row, col, attr);
 				vim_free(st);
 			    }
 			    col += width;
@@ -639,6 +655,7 @@ pum_position_info_popup(win_T *wp)
     int col = pum_col + pum_width + pum_scrollbar + 1;
     int row = pum_row;
     int botpos = POPPOS_BOTLEFT;
+    int	used_maxwidth_opt = FALSE;
 
     wp->w_popup_pos = POPPOS_TOPLEFT;
     if (Columns - col < 20 && Columns - col < pum_col)
@@ -651,6 +668,12 @@ pum_position_info_popup(win_T *wp)
     else
 	wp->w_maxwidth = Columns - col + 1;
     wp->w_maxwidth -= popup_extra_width(wp);
+    if (wp->w_maxwidth_opt > 0 && wp->w_maxwidth > wp->w_maxwidth_opt)
+    {
+	// option value overrules computed value
+	wp->w_maxwidth = wp->w_maxwidth_opt;
+	used_maxwidth_opt = TRUE;
+    }
 
     row -= popup_top_extra(wp);
     if (wp->w_popup_flags & POPF_INFO_MENU)
@@ -670,7 +693,7 @@ pum_position_info_popup(win_T *wp)
 	row += pum_selected - pum_first + 1;
 
     wp->w_popup_flags &= ~POPF_HIDDEN;
-    if (wp->w_maxwidth < 10)
+    if (wp->w_maxwidth < 10 && !used_maxwidth_opt)
 	// The popup is not going to fit or will overlap with the cursor
 	// position, hide the popup.
 	wp->w_popup_flags |= POPF_HIDDEN;
@@ -785,6 +808,10 @@ pum_set_selected(int n, int repeat UNUSED)
 		use_popup = USEPOPUP_NORMAL;
 	    else
 		use_popup = USEPOPUP_NONE;
+	    if (use_popup != USEPOPUP_NONE)
+		// don't use WinEnter or WinLeave autocommands for the info
+		// popup
+		block_autocmds();
 # endif
 	    // Open a preview window and set "curwin" to it.
 	    // 3 lines by default, prefer 'previewheight' if set and smaller.
@@ -814,7 +841,7 @@ pum_set_selected(int n, int repeat UNUSED)
 		{
 		    // Already a "wipeout" buffer, make it empty.
 		    while (!BUFEMPTY())
-			ml_delete((linenr_T)1, FALSE);
+			ml_delete((linenr_T)1);
 		}
 		else
 		{
@@ -827,6 +854,7 @@ pum_set_selected(int n, int repeat UNUSED)
 			// Edit a new, empty buffer. Set options for a "wipeout"
 			// buffer.
 			set_option_value((char_u *)"swf", 0L, NULL, OPT_LOCAL);
+			set_option_value((char_u *)"bl", 0L, NULL, OPT_LOCAL);
 			set_option_value((char_u *)"bt", 0L,
 					       (char_u *)"nofile", OPT_LOCAL);
 			set_option_value((char_u *)"bh", 0L,
@@ -857,7 +885,7 @@ pum_set_selected(int n, int repeat UNUSED)
 			}
 		    }
 		    // delete the empty last line
-		    ml_delete(curbuf->b_ml.ml_line_count, FALSE);
+		    ml_delete(curbuf->b_ml.ml_line_count);
 
 		    // Increase the height of the preview window to show the
 		    // text, but no more than 'previewheight' lines.
@@ -897,6 +925,8 @@ pum_set_selected(int n, int repeat UNUSED)
 			    || (curtab != curtab_save
 						&& valid_tabpage(curtab_save)))
 		    {
+			int save_redr_status;
+
 			if (curtab != curtab_save && valid_tabpage(curtab_save))
 			    goto_tabpage_tp(curtab_save, FALSE, FALSE);
 
@@ -925,13 +955,20 @@ pum_set_selected(int n, int repeat UNUSED)
 			// Update the screen before drawing the popup menu.
 			// Enable updating the status lines.
 			pum_pretend_not_visible = TRUE;
+
 			// But don't draw text at the new popup menu position,
 			// it causes flicker.  When resizing we need to draw
 			// anyway, the position may change later.
+			// Also do not redraw the status line of the original
+			// current window here, to avoid it gets drawn with
+			// StatusLineNC for a moment and cause flicker.
 			pum_will_redraw = !resized;
+			save_redr_status = curwin_save->w_redr_status;
+			curwin_save->w_redr_status = FALSE;
 			update_screen(0);
 			pum_pretend_not_visible = FALSE;
 			pum_will_redraw = FALSE;
+			curwin_save->w_redr_status = save_redr_status;
 
 			if (!resized && win_valid(curwin_save))
 			{
@@ -963,6 +1000,10 @@ pum_set_selected(int n, int repeat UNUSED)
 		// can't keep focus in a popup window
 		win_enter(firstwin, TRUE);
 # endif
+# ifdef FEAT_PROP_POPUP
+	    if (use_popup != USEPOPUP_NONE)
+		unblock_autocmds();
+# endif
 	}
 #endif
     }
@@ -971,9 +1012,6 @@ pum_set_selected(int n, int repeat UNUSED)
 	// hide any popup info window
 	popup_hide_info();
 #endif
-
-    if (!resized)
-	pum_redraw();
 
     return resized;
 }
@@ -1016,6 +1054,32 @@ pum_visible(void)
 }
 
 /*
+ * Return TRUE if the popup can be redrawn in the same position.
+ */
+    static int
+pum_in_same_position(void)
+{
+    return pum_window != curwin
+	    || (pum_win_row == curwin->w_wrow + W_WINROW(curwin)
+		&& pum_win_height == curwin->w_height
+		&& pum_win_col == curwin->w_wincol
+		&& pum_win_width == curwin->w_width);
+}
+
+/*
+ * Return TRUE when pum_may_redraw() will call pum_redraw().
+ * This means that the pum area should not be overwritten to avoid flicker.
+ */
+    int
+pum_redraw_in_same_position(void)
+{
+    if (!pum_visible() || pum_will_redraw)
+	return FALSE;  // nothing to do
+
+    return pum_in_same_position();
+}
+
+/*
  * Reposition the popup menu to adjust for window layout changes.
  */
     void
@@ -1028,11 +1092,7 @@ pum_may_redraw(void)
     if (!pum_visible() || pum_will_redraw)
 	return;  // nothing to do
 
-    if (pum_window != curwin
-	    || (pum_win_row == curwin->w_wrow + W_WINROW(curwin)
-		&& pum_win_height == curwin->w_height
-		&& pum_win_col == curwin->w_wincol
-		&& pum_win_width == curwin->w_width))
+    if (pum_in_same_position())
     {
 	// window position didn't change, redraw in the same position
 	pum_redraw();
@@ -1315,7 +1375,7 @@ ui_post_balloon(char_u *mesg, list_T *list)
 	balloon_array = ALLOC_CLEAR_MULT(pumitem_T, list->lv_len);
 	if (balloon_array == NULL)
 	    return;
-	range_list_materialize(list);
+	CHECK_LIST_MATERIALIZE(list);
 	for (idx = 0, li = list->lv_first; li != NULL; li = li->li_next, ++idx)
 	{
 	    char_u *text = tv_get_string_chk(&li->li_tv);
@@ -1382,7 +1442,7 @@ pum_execute_menu(vimmenu_T *menu, int mode)
     FOR_ALL_CHILD_MENUS(menu, mp)
 	if ((mp->modes & mp->enabled & mode) && idx++ == pum_selected)
 	{
-	    vim_memset(&ea, 0, sizeof(ea));
+	    CLEAR_FIELD(ea);
 	    execute_menu(&ea, mp, -1);
 	    break;
 	}
@@ -1425,10 +1485,21 @@ pum_show_popupmenu(vimmenu_T *menu)
 	return;
 
     FOR_ALL_CHILD_MENUS(menu, mp)
+    {
+	char_u *s = NULL;
+
+	// Make a copy of the text, the menu may be redefined in a callback.
 	if (menu_is_separator(mp->dname))
-	    array[idx++].pum_text = (char_u *)"";
+	    s = (char_u *)"";
 	else if (mp->modes & mp->enabled & mode)
-	    array[idx++].pum_text = mp->dname;
+	    s = mp->dname;
+	if (s != NULL)
+	{
+	    s = vim_strsave(s);
+	    if (s != NULL)
+		array[idx++].pum_text = s;
+	}
+    }
 
     pum_array = array;
     pum_compute_size();
@@ -1509,6 +1580,8 @@ pum_show_popupmenu(vimmenu_T *menu)
 	}
     }
 
+    for (idx = 0; idx < pum_size; ++idx)
+	vim_free(array[idx].pum_text);
     vim_free(array);
     pum_undisplay();
 # ifdef FEAT_BEVAL_TERM

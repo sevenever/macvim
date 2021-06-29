@@ -13,13 +13,6 @@
 #import "vim.h"
 
 
-#ifdef FEAT_BEVAL
-// Seconds to delay balloon evaluation after mouse event (subtracted from
-// p_bdlay).
-extern NSTimeInterval MMBalloonEvalInternalDelay;
-#endif
-
-
 @interface MMBackend : NSObject <MMBackendProtocol, MMVimServerProtocol,
         MMVimClientProtocol> {
     NSMutableArray      *outputQueue;
@@ -140,6 +133,7 @@ extern NSTimeInterval MMBalloonEvalInternalDelay;
 - (void)setLigatures:(BOOL)ligatures;
 - (void)setThinStrokes:(BOOL)thinStrokes;
 - (void)setBlurRadius:(int)radius;
+- (void)setBackground:(int)dark;
 
 - (void)updateModifiedFlag;
 

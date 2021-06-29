@@ -58,6 +58,7 @@
 # define NSAlertStyleInformational NSInformationalAlertStyle
 # define NSAlertStyleWarning NSWarningAlertStyle
 # define NSCompositingOperationSourceOver NSCompositeSourceOver
+# define NSCompositingOperationDifference NSCompositeDifference
 # define NSControlSizeRegular NSRegularControlSize
 # define NSEventModifierFlagCapsLock NSAlphaShiftKeyMask
 # define NSEventModifierFlagCommand NSCommandKeyMask
@@ -203,6 +204,7 @@ extern const char * const MMVimMsgIDStrings[];
     MSG(RemoveMenuItemMsgID) \
     MSG(EnableMenuItemMsgID) \
     MSG(ExecuteMenuMsgID) \
+    MSG(UpdateMenuItemTooltipMsgID) \
     MSG(ShowToolbarMsgID) \
     MSG(ToggleToolbarMsgID) \
     MSG(CreateScrollbarMsgID) \
@@ -259,11 +261,11 @@ extern const char * const MMVimMsgIDStrings[];
     MSG(SetWindowPositionMsgID) \
     MSG(DeleteSignMsgID) \
     MSG(SetTooltipMsgID) \
-    MSG(SetTooltipDelayMsgID) \
     MSG(GestureMsgID) \
     MSG(AddToMRUMsgID) \
     MSG(BackingPropertiesChangedMsgID) \
     MSG(SetBlurRadiusMsgID) \
+    MSG(SetBackgroundOptionMsgID) \
     MSG(NotifyAppearanceChangeMsgID) \
     MSG(EnableLigaturesMsgID) \
     MSG(DisableLigaturesMsgID) \
@@ -345,7 +347,7 @@ extern NSString *MMShareFindPboardKey;
 
 extern NSString *MMAutosaveRowsKey;
 extern NSString *MMAutosaveColumnsKey;
-extern NSString *MMRendererKey;
+extern NSString *MMRendererKey; // Deprecated: Non-CoreText renderer
 
 enum {
     MMRendererDefault = 0,
@@ -365,6 +367,7 @@ extern NSString *VimFindPboardType;
 
 
 @interface NSColor (MMExtras)
+@property(readonly) unsigned argbInt;
 + (NSColor *)colorWithRgbInt:(unsigned)rgb;
 + (NSColor *)colorWithArgbInt:(unsigned)argb;
 @end

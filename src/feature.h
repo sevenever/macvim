@@ -596,6 +596,13 @@
 # define FEAT_SOUND_CANBERRA
 #endif
 
+/*
+ * libsodium - add cryptography support
+ */
+#if defined(HAVE_SODIUM) && defined(FEAT_BIG)
+# define FEAT_SODIUM
+#endif
+
 // There are two ways to use XPM.
 #if (defined(HAVE_XM_XPMP_H) && defined(FEAT_GUI_MOTIF)) \
 		|| defined(HAVE_X11_XPM_H)
@@ -622,8 +629,8 @@
 #if defined(FEAT_TOOLBAR) && !defined(FEAT_MENU)
 # define FEAT_MENU
 #endif
-										
-#if defined(FEAT_TOOLBAR) && defined(FEAT_GUI_MACVIM) 
+
+#if defined(FEAT_TOOLBAR) && defined(FEAT_GUI_MACVIM)
 # define FEAT_TOUCHBAR
 #endif
 
@@ -639,9 +646,8 @@
  */
 #if defined(FEAT_NORMAL) \
     && (defined(FEAT_GUI_GTK) \
-        || defined(FEAT_GUI_MACVIM) \
 	|| (defined(FEAT_GUI_MOTIF) && defined(HAVE_XM_NOTEBOOK_H)) \
-	|| defined(FEAT_GUI_MAC) \
+	|| defined(FEAT_GUI_MACVIM) \
 	|| defined(FEAT_GUI_HAIKU) \
 	|| (defined(FEAT_GUI_MSWIN) \
 	    && (!defined(_MSC_VER) || _MSC_VER > 1020)))
@@ -655,9 +661,8 @@
 #if defined(FEAT_NORMAL)
 # define FEAT_BROWSE_CMD
 # if defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA) \
-	|| defined(FEAT_GUI_GTK) || defined(FEAT_GUI_HAIKU) || defined(FEAT_GUI_PHOTON) \
 	|| defined(FEAT_GUI_MACVIM) \
-	|| defined(FEAT_GUI_MAC)
+	|| defined(FEAT_GUI_GTK) || defined(FEAT_GUI_HAIKU) || defined(FEAT_GUI_PHOTON)
 #  define FEAT_BROWSE
 # endif
 #endif
@@ -667,8 +672,7 @@
  * there is no terminal version, and on Windows we can't figure out how to
  * fork one off with :gui.
  */
-#if (defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)) \
-	    || (defined(FEAT_GUI_MAC) && !defined(MACOS_X_DARWIN))
+#if defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)
 # define ALWAYS_USE_GUI
 #endif
 
@@ -683,9 +687,8 @@
 	|| defined(FEAT_GUI_GTK) \
 	|| defined(FEAT_GUI_PHOTON) \
 	|| defined(FEAT_GUI_HAIKU) \
-	|| defined(FEAT_GUI_MSWIN) \
-	|| defined(FEAT_GUI_MAC) \
-	|| defined(FEAT_GUI_MACVIM)
+	|| defined(FEAT_GUI_MACVIM) \
+	|| defined(FEAT_GUI_MSWIN)
 #  define FEAT_CON_DIALOG
 #  define FEAT_GUI_DIALOG
 # else
@@ -701,7 +704,7 @@
 #if defined(FEAT_GUI_DIALOG) && \
 	(defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA) \
 	 || defined(FEAT_GUI_GTK) || defined(FEAT_GUI_MSWIN) \
-	 || defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MAC) \
+	 || defined(FEAT_GUI_PHOTON) \
 	 || defined(FEAT_GUI_MACVIM) \
 	 || defined(FEAT_GUI_HAIKU))
 # define FEAT_GUI_TEXTDIALOG
@@ -715,11 +718,6 @@
  */
 #if (defined(FEAT_BIG) && defined(FEAT_SYN_HL)) && !defined(ALWAYS_USE_GUI)
 # define FEAT_TERMGUICOLORS
-#endif
-
-// Mac specific thing: Codewarrior interface.
-#ifdef FEAT_GUI_MAC
-# define FEAT_CW_EDITOR
 #endif
 
 /*
@@ -958,7 +956,7 @@
  * +mouse_sgr		Unix only: Include code for for SGR-styled mouse.
  * +mouse_sysmouse	Unix only: Include code for FreeBSD and DragonFly
  *			console mouse handling.
- * +mouse_urxvt		Unix only: Include code for for urxvt mosue handling.
+ * +mouse_urxvt		Unix only: Include code for for urxvt mouse handling.
  * +mouse		Any mouse support (any of the above enabled).
  *			Always included, since either FEAT_MOUSE_XTERM or
  *			DOS_MOUSE is defined.
@@ -1109,18 +1107,17 @@
 #endif
 
 #if defined(FEAT_MZSCHEME) && (defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_GTK)    \
-	|| defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA)	\
-	|| defined(FEAT_GUI_MAC))
+	|| defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA))
 # define MZSCHEME_GUI_THREADS
 #endif
 
 /*
  * +ARP			Amiga only. Use arp.library, DOS 2.0 is not required.
  */
-#if !defined(NO_ARP) && !defined(__amigaos4__)
+#if defined(AMIGA) && !defined(NO_ARP) && !defined(__amigaos4__) \
+	&& !defined(__MORPHOS__) && !defined(__AROS__)
 # define FEAT_ARP
 #endif
-
 
 /*
  * +ole			Win32 OLE automation: Use Makefile.ovc.
@@ -1175,6 +1172,12 @@
 # define FEAT_SYN_HL
 #endif
 
+/*
+ * +autoshelldir	    'autoshelldir' option.
+ */
+#if defined(FEAT_TERMINAL)
+# define FEAT_AUTOSHELLDIR
+#endif
 /*
  * +textprop and +popupwin	Text PROPerties and POPUP windows
  */

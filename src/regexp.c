@@ -202,7 +202,7 @@ get_char_class(char_u **pp)
 
     if ((*pp)[1] == ':')
     {
-	for (i = 0; i < (int)(sizeof(class_names) / sizeof(*class_names)); ++i)
+	for (i = 0; i < (int)ARRAY_LENGTH(class_names); ++i)
 	    if (STRNCMP(*pp + 2, class_names[i], STRLEN(class_names[i])) == 0)
 	    {
 		*pp += STRLEN(class_names[i]) + 2;
@@ -294,6 +294,7 @@ init_class_tab(void)
 
 static char_u	*regparse;	// Input-scan pointer.
 static int	regnpar;	// () count.
+static int	wants_nfa;	// regex should use NFA engine
 #ifdef FEAT_SYN_HL
 static int	regnzpar;	// \z() count.
 static int	re_has_z;	// \z item detected
@@ -303,11 +304,7 @@ static unsigned	regflags;	// RF_ flags for prog
 static int	had_eol;	// TRUE when EOL found by vim_regcomp()
 #endif
 
-static int	reg_magic;	// magicness of the pattern:
-#define MAGIC_NONE	1	// "\V" very unmagic
-#define MAGIC_OFF	2	// "\M" or 'magic' off
-#define MAGIC_ON	3	// "\m" or 'magic'
-#define MAGIC_ALL	4	// "\v" very magic
+static magic_T	reg_magic;	// magicness of the pattern
 
 static int	reg_string;	// matching with a string instead of a buffer
 				// line
@@ -381,6 +378,9 @@ static int	cstrncmp(char_u *s1, char_u *s2, int *n);
 static char_u	*cstrchr(char_u *, int);
 static int	re_mult_next(char *what);
 static int	reg_iswordc(int);
+#ifdef FEAT_EVAL
+static void report_re_switch(char_u *pat);
+#endif
 
 static regengine_T bt_regengine;
 static regengine_T nfa_regengine;
@@ -534,17 +534,37 @@ skip_anyof(char_u *p)
 
 /*
  * Skip past regular expression.
- * Stop at end of "startp" or where "dirc" is found ('/', '?', etc).
+ * Stop at end of "startp" or where "delim" is found ('/', '?', etc).
  * Take care of characters with a backslash in front of it.
  * Skip strings inside [ and ].
  */
     char_u *
 skip_regexp(
     char_u	*startp,
-    int		dirc,
+    int		delim,
     int		magic)
 {
-    return skip_regexp_ex(startp, dirc, magic, NULL, NULL);
+    return skip_regexp_ex(startp, delim, magic, NULL, NULL, NULL);
+}
+
+/*
+ * Call skip_regexp() and when the delimiter does not match give an error and
+ * return NULL.
+ */
+    char_u *
+skip_regexp_err(
+    char_u	*startp,
+    int		delim,
+    int		magic)
+{
+    char_u *p = skip_regexp(startp, delim, magic);
+
+    if (*p != delim)
+    {
+	semsg(_("E654: missing delimiter after search pattern: %s"), startp);
+	return NULL;
+    }
+    return p;
 }
 
 /*
@@ -553,6 +573,7 @@ skip_regexp(
  * expression and change "\?" to "?".  If "*newp" is not NULL the expression
  * is changed in-place.
  * If a "\?" is changed to "?" then "dropped" is incremented, unless NULL.
+ * If "magic_val" is not NULL, returns the effective magicness of the pattern
  */
     char_u *
 skip_regexp_ex(
@@ -560,9 +581,10 @@ skip_regexp_ex(
     int		dirc,
     int		magic,
     char_u	**newp,
-    int		*dropped)
+    int		*dropped,
+    magic_T	*magic_val)
 {
-    int		mymagic;
+    magic_T	mymagic;
     char_u	*p = startp;
 
     if (magic)
@@ -608,6 +630,8 @@ skip_regexp_ex(
 		mymagic = MAGIC_NONE;
 	}
     }
+    if (magic_val != NULL)
+	*magic_val = mymagic;
     return p;
 }
 
@@ -1255,6 +1279,7 @@ reg_match_visual(void)
     colnr_T	start, end;
     colnr_T	start2, end2;
     colnr_T	cols;
+    colnr_T	curswant;
 
     // Check if the buffer is the current buffer.
     if (rex.reg_buf != curbuf || VIsual.lnum == 0)
@@ -1273,6 +1298,7 @@ reg_match_visual(void)
 	    bot = VIsual;
 	}
 	mode = VIsual_mode;
+	curswant = wp->w_curswant;
     }
     else
     {
@@ -1287,6 +1313,7 @@ reg_match_visual(void)
 	    bot = curbuf->b_visual.vi_start;
 	}
 	mode = curbuf->b_visual.vi_mode;
+	curswant = curbuf->b_visual.vi_curswant;
     }
     lnum = rex.lnum + rex.reg_firstlnum;
     if (lnum < top.lnum || lnum > bot.lnum)
@@ -1307,7 +1334,7 @@ reg_match_visual(void)
 	    start = start2;
 	if (end2 > end)
 	    end = end2;
-	if (top.col == MAXCOL || bot.col == MAXCOL)
+	if (top.col == MAXCOL || bot.col == MAXCOL || curswant == MAXCOL)
 	    end = MAXCOL;
 	cols = win_linetabsize(wp, rex.line, (colnr_T)(rex.input - rex.line));
 	if (cols < start || cols > end - (*p_sel == 'e'))
@@ -1671,9 +1698,9 @@ cstrchr(char_u *s, int c)
  * We should define ftpr as a pointer to a function returning a pointer to
  * a function returning a pointer to a function ...
  * This is impossible, so we declare a pointer to a function returning a
- * pointer to a function returning void. This should work for all compilers.
+ * void pointer. This should work for all compilers.
  */
-typedef void (*(*fptr_T)(int *, int))();
+typedef void (*(*fptr_T)(int *, int));
 
 static int vim_regsub_both(char_u *source, typval_T *expr, char_u *dest, int copy, int magic, int backslash);
 
@@ -1826,7 +1853,7 @@ fill_submatch_list(int argc UNUSED, typval_T *argv, int argskip, int argcount)
 	if (s == NULL || rsm.sm_match->endp[i] == NULL)
 	    s = NULL;
 	else
-	    s = vim_strnsave(s, (int)(rsm.sm_match->endp[i] - s));
+	    s = vim_strnsave(s, rsm.sm_match->endp[i] - s);
 	li->li_tv.v_type = VAR_STRING;
 	li->li_tv.vval.v_string = s;
 	li = li->li_next;
@@ -2014,7 +2041,7 @@ vim_regsub_both(
 		argv[0].v_type = VAR_LIST;
 		argv[0].vval.v_list = &matchList.sl_list;
 		matchList.sl_list.lv_len = 0;
-		vim_memset(&funcexe, 0, sizeof(funcexe));
+		CLEAR_FIELD(funcexe);
 		funcexe.argv_func = fill_submatch_list;
 		funcexe.evaluate = TRUE;
 		if (expr->v_type == VAR_FUNC)
@@ -2045,8 +2072,11 @@ vim_regsub_both(
 		}
 		clear_tv(&rettv);
 	    }
+	    else if (substitute_instr != NULL)
+		// Execute instructions from ISN_SUBSTITUTE.
+		eval_result = exe_substitute_instr();
 	    else
-		eval_result = eval_to_string(source + 2, NULL, TRUE);
+		eval_result = eval_to_string(source + 2, TRUE);
 
 	    if (eval_result != NULL)
 	    {
@@ -2259,7 +2289,7 @@ vim_regsub_both(
 		    else if (*s == NUL) // we hit NUL.
 		    {
 			if (copy)
-			    emsg(_(e_re_damg));
+			    iemsg(_(e_re_damg));
 			goto exit;
 		    }
 		    else
@@ -2442,7 +2472,7 @@ reg_submatch(int no)
 	if (s == NULL || rsm.sm_match->endp[no] == NULL)
 	    retval = NULL;
 	else
-	    retval = vim_strnsave(s, (int)(rsm.sm_match->endp[no] - s));
+	    retval = vim_strnsave(s, rsm.sm_match->endp[no] - s);
     }
 
     return retval;
@@ -2523,6 +2553,7 @@ reg_submatch_list(int no)
 	list_free(list);
 	return NULL;
     }
+    ++list->lv_refcount;
     return list;
 }
 #endif
@@ -2641,7 +2672,7 @@ vim_regcomp(char_u *expr_arg, int re_flags)
     if (prog == NULL)
     {
 #ifdef BT_REGEXP_DEBUG_LOG
-	if (regexp_engine != BACKTRACKING_ENGINE)   // debugging log for NFA
+	if (regexp_engine == BACKTRACKING_ENGINE)   // debugging log for BT engine
 	{
 	    FILE *f;
 	    f = fopen(BT_REGEXP_DEBUG_LOG_NAME, "a");
@@ -2665,6 +2696,9 @@ vim_regcomp(char_u *expr_arg, int re_flags)
 					  && called_emsg == called_emsg_before)
 	{
 	    regexp_engine = BACKTRACKING_ENGINE;
+#ifdef FEAT_EVAL
+	    report_re_switch(expr);
+#endif
 	    prog = bt_regengine.regcomp(expr, re_flags);
 	}
     }

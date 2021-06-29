@@ -73,7 +73,7 @@ static const char *toolbar_names[] =
     /* 25 */ "Make", "TagJump", "RunCtags", "WinVSplit", "WinMaxWidth",
     /* 30 */ "WinMinWidth", "Exit"
 };
-# define TOOLBAR_NAME_COUNT (sizeof(toolbar_names) / sizeof(char *))
+# define TOOLBAR_NAME_COUNT ARRAY_LENGTH(toolbar_names)
 #endif
 
 /*
@@ -289,7 +289,7 @@ ex_menu(
     }
     else if (*map_to != NUL && (unmenu || enable != MAYBE))
     {
-	emsg(_(e_trailing));
+	semsg(_(e_trailing_arg), map_to);
 	goto theend;
     }
 #if defined(FEAT_GUI) && !(defined(FEAT_GUI_GTK) || defined(FEAT_GUI_PHOTON) \
@@ -814,7 +814,6 @@ add_menu_path(
 	    }
 	}
 #if defined(FEAT_TOOLBAR) && !defined(FEAT_GUI_MSWIN) \
-	&& !defined(FEAT_GUI_MACVIM) \
 	&& (defined(FEAT_BEVAL_GUI) || defined(FEAT_GUI_GTK))
 	// Need to update the menu tip.
 	if (modes & MENU_TIP_MODE)
@@ -1010,7 +1009,6 @@ remove_menu(
 	{
 	    free_menu_string(menu, MENU_INDEX_TIP);
 #if defined(FEAT_TOOLBAR) && !defined(FEAT_GUI_MSWIN) \
-	    && !defined(FEAT_GUI_MACVIM) \
 	    && (defined(FEAT_BEVAL_GUI) || defined(FEAT_GUI_GTK))
 	    // Need to update the menu tip.
 	    if (gui.in_use)
@@ -1816,7 +1814,7 @@ menu_text(char_u *str, int *mnemonic, char_u **actext)
     {
 	if (actext != NULL)
 	    *actext = vim_strsave(p + 1);
-	text = vim_strnsave(str, (int)(p - str));
+	text = vim_strnsave(str, p - str);
     }
     else
 	text = vim_strsave(str);
@@ -2323,11 +2321,7 @@ execute_menu(exarg_T *eap, vimmenu_T *menu, int mode_idx)
     if (idx < 0)
     {
 	// Use the Insert mode entry when returning to Insert mode.
-	if (restart_edit
-#ifdef FEAT_EVAL
-		&& !current_sctx.sc_sid
-#endif
-		)
+	if (restart_edit && !current_sctx.sc_sid)
 	{
 	    idx = MENU_INDEX_INSERT;
 	}
@@ -2398,11 +2392,7 @@ execute_menu(exarg_T *eap, vimmenu_T *menu, int mode_idx)
 	// When executing a script or function execute the commands right now.
 	// Also for the window toolbar.
 	// Otherwise put them in the typeahead buffer.
-	if (eap == NULL
-#ifdef FEAT_EVAL
-		|| current_sctx.sc_sid != 0
-#endif
-	   )
+	if (eap == NULL || current_sctx.sc_sid != 0)
 	{
 	    save_state_T save_state;
 
@@ -2709,7 +2699,7 @@ ex_menutranslate(exarg_T *eap UNUSED)
     /*
      * ":menutrans clear": clear all translations.
      */
-    if (STRNCMP(arg, "clear", 5) == 0 && ends_excmd(*skipwhite(arg + 5)))
+    if (STRNCMP(arg, "clear", 5) == 0 && ends_excmd2(arg, skipwhite(arg + 5)))
     {
 	tp = (menutrans_T *)menutrans_ga.ga_data;
 	for (i = 0; i < menutrans_ga.ga_len; ++i)
@@ -2732,7 +2722,9 @@ ex_menutranslate(exarg_T *eap UNUSED)
 	to = skipwhite(arg);
 	*arg = NUL;
 	arg = menu_skip_part(to);
-	if (arg == to)
+	if (arg == to || ends_excmd2(eap->arg, from)
+		      || ends_excmd2(eap->arg, to)
+		      || !ends_excmd2(eap->arg, skipwhite(arg)))
 	    emsg(_(e_invarg));
 	else
 	{
@@ -2743,7 +2735,7 @@ ex_menutranslate(exarg_T *eap UNUSED)
 		if (from != NULL)
 		{
 		    from_noamp = menu_text(from, NULL, NULL);
-		    to = vim_strnsave(to, (int)(arg - to));
+		    to = vim_strnsave(to, arg - to);
 		    if (from_noamp != NULL && to != NULL)
 		    {
 			menu_translate_tab_and_shift(from);
@@ -2861,8 +2853,8 @@ menu_translate_tab_and_shift(char_u *arg_start)
     return arg;
 }
 
-#ifdef FEAT_GUI_MACVIM
-    vimmenu_T *
+#if defined(FEAT_GUI_MACVIM) || defined(PROTO)
+    static vimmenu_T *
 menu_for_path(char_u *menu_path)
 {
     vimmenu_T	*menu;
@@ -2916,14 +2908,14 @@ menu_for_path(char_u *menu_path)
     return menu;
 }
 
-    void 
+    static void
 set_mac_menu_attrs(
-    vimmenu_T	*menu, 
-    char_u	*action, 
-    int		set_alt, 
-    int		mac_alternate, 
-    int		set_key, 
-    int		mac_key, 
+    vimmenu_T	*menu,
+    char_u	*action,
+    int		set_alt,
+    int		mac_alternate,
+    int		set_key,
+    int		mac_key,
     int		mac_mods)
 {
     if (action)
@@ -2941,8 +2933,7 @@ set_mac_menu_attrs(
  * Handle the ":macmenu" command.
  */
     void
-ex_macmenu(eap)
-    exarg_T	*eap;
+ex_macmenu(exarg_T *eap)
 {
     vimmenu_T	*menu = NULL;
     vimmenu_T	*popup_menu_for_mode = NULL;
@@ -2966,8 +2957,8 @@ ex_macmenu(eap)
     int		unmenu;
     char_u	*last_dash;
     int		bit;
-    int         set_key = FALSE;
-    int         set_alt = FALSE;
+    int		set_key = FALSE;
+    int		set_alt = FALSE;
 
     arg = eap->arg;
 
@@ -2981,7 +2972,8 @@ ex_macmenu(eap)
     keys = menu_translate_tab_and_shift(arg);
 
     menu = menu_for_path(menu_path);
-    if (!menu) return;
+    if (!menu)
+	return;
 
     /*
      * Parse all key=value arguments.
@@ -3178,7 +3170,8 @@ ex_macmenu(eap)
      */
     if (!error)
     {
-	set_mac_menu_attrs(menu, action, set_alt, mac_alternate, set_key, mac_key, mac_mods);
+	set_mac_menu_attrs(menu, action, set_alt, mac_alternate, set_key,
+							   mac_key, mac_mods);
 
 	modes = get_menu_cmd_modes(eap->cmd, eap->forceit, &noremap, &unmenu);
 	if (menu_is_popup(menu_path))
@@ -3190,7 +3183,9 @@ ex_macmenu(eap)
 		    if (p != NULL)
 		    {
 			popup_menu_for_mode = menu_for_path(p);
-			set_mac_menu_attrs(popup_menu_for_mode, action, set_alt, mac_alternate, set_key, mac_key, mac_mods);
+			set_mac_menu_attrs(popup_menu_for_mode, action,
+						  set_alt, mac_alternate,
+						  set_key, mac_key, mac_mods);
 			vim_free(p);
 		    }
 		}
@@ -3203,11 +3198,10 @@ ex_macmenu(eap)
 }
 
     char_u *
-lookup_toolbar_item(idx)
-    int idx;
+lookup_toolbar_item(int idx)
 {
-    if (idx >= 0 && idx < TOOLBAR_NAME_COUNT)
-        return (char_u*)toolbar_names[idx];
+    if (idx >= 0 && (size_t)idx < TOOLBAR_NAME_COUNT)
+	return (char_u*)toolbar_names[idx];
 
     return NULL;
 }

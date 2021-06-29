@@ -403,7 +403,7 @@ plines_win_nofold(win_T *wp, linenr_T lnum)
      * If list mode is on, then the '$' at the end of the line may take up one
      * extra column.
      */
-    if (wp->w_p_list && lcs_eol != NUL)
+    if (wp->w_p_list && wp->w_lcs_chars.eol != NUL)
 	col += 1;
 
     /*
@@ -460,7 +460,8 @@ plines_win_col(win_T *wp, linenr_T lnum, long column)
      * from one screen line to the next (when 'columns' is not a multiple of
      * 'ts') -- webb.
      */
-    if (*s == TAB && (State & NORMAL) && (!wp->w_p_list || lcs_tab1))
+    if (*s == TAB && (State & NORMAL) && (!wp->w_p_list ||
+							wp->w_lcs_chars.tab1))
 	col += win_lbr_chartabsize(wp, line, s, (colnr_T)col, NULL) - 1;
 
     /*
@@ -631,7 +632,7 @@ f_mode(typval_T *argvars, typval_T *rettv)
 {
     char_u	buf[4];
 
-    vim_memset(buf, 0, sizeof(buf));
+    CLEAR_FIELD(buf);
 
     if (time_for_testing == 93784)
     {
@@ -952,7 +953,12 @@ get_number(
 	    do_redraw = FALSE;
 	    break;
 	}
-	else if (c == CAR || c == NL || c == Ctrl_C || c == ESC)
+	else if (c == Ctrl_C || c == ESC || c == 'q')
+	{
+	    n = 0;
+	    break;
+	}
+	else if (c == CAR || c == NL )
 	    break;
     }
     --no_mapping;
@@ -974,9 +980,9 @@ prompt_for_number(int *mouse_used)
 
     // When using ":silent" assume that <CR> was entered.
     if (mouse_used != NULL)
-	msg_puts(_("Type number and <Enter> or click with mouse (empty cancels): "));
+	msg_puts(_("Type number and <Enter> or click with the mouse (q or empty cancels): "));
     else
-	msg_puts(_("Type number and <Enter> (empty cancels): "));
+	msg_puts(_("Type number and <Enter> (q or empty cancels): "));
 
     // Set the state such that text can be selected/copied/pasted and we still
     // get mouse events. redraw_after_callback() will not redraw if cmdline_row
@@ -1070,7 +1076,7 @@ vim_beep(
     called_vim_beep = TRUE;
 #endif
 
-    if (emsg_silent == 0)
+    if (emsg_silent == 0 && !in_assert_fails)
     {
 	if (!((bo_flags & val) || (bo_flags & BO_ALL)))
 	{
@@ -1336,7 +1342,7 @@ expand_env_esc(
 
 	    var = src;
 	    src += 2;
-	    (void)skip_expr(&src);
+	    (void)skip_expr(&src, NULL);
 	    if (*src == '`')
 		++src;
 	    len = src - var;
@@ -1673,23 +1679,25 @@ vim_getenv(char_u *name, int *mustfree)
 
     if (p != NULL)
 	return p;
+
+# ifdef __HAIKU__
+    // special handling for user settings directory...
+    if (STRCMP(name, "BE_USER_SETTINGS") == 0)
+    {
+	static char userSettingsPath[MAXPATHL];
+
+	if (find_directory(B_USER_SETTINGS_DIRECTORY, 0, false,
+					   userSettingsPath, MAXPATHL) == B_OK)
+	    return (char_u *)userSettingsPath;
+	else
+	    return NULL;
+    }
+# endif
 #endif
 
     // handling $VIMRUNTIME and $VIM is below, bail out if it's another name.
     vimruntime = (STRCMP(name, "VIMRUNTIME") == 0);
     if (!vimruntime && STRCMP(name, "VIM") != 0)
-#if defined(__HAIKU__)
-	// special handling for user settings directory...
-	if (STRCMP(name, "BE_USER_SETTINGS") == 0)
-	{
-	    static char userSettingsPath[MAXPATHL] = {0};
-
-	    if (B_OK == find_directory(B_USER_SETTINGS_DIRECTORY, 0,
-					    false, userSettingsPath, MAXPATHL))
-		return userSettingsPath;
-	}
-	else
-#endif
 	return NULL;
 
     /*
@@ -1800,7 +1808,7 @@ vim_getenv(char_u *name, int *mustfree)
 	    if (p == exe_name || p == p_hf)
 #endif
 		// check that the result is a directory name
-		p = vim_strnsave(p, (int)(pend - p));
+		p = vim_strnsave(p, pend - p);
 
 	    if (p != NULL && !mch_isdir(p))
 		VIM_CLEAR(p);
@@ -2179,7 +2187,7 @@ preserve_exit(void)
     {
 	if (buf->b_ml.ml_mfp != NULL && buf->b_ml.ml_mfp->mf_fname != NULL)
 	{
-	    OUT_STR("Vim: preserving files...\n");
+	    OUT_STR("Vim: preserving files...\r\n");
 	    screen_start();	    // don't know where cursor is now
 	    out_flush();
 	    ml_sync_all(FALSE, FALSE);	// preserve all swap files
@@ -2189,7 +2197,7 @@ preserve_exit(void)
 
     ml_close_all(FALSE);	    // close all memfiles, without deleting
 
-    OUT_STR("Vim: Finished.\n");
+    OUT_STR("Vim: Finished.\r\n");
 
     getout(1);
 }
@@ -2573,6 +2581,7 @@ goto_im(void)
  * But don't allow a space in the path, so that this works:
  *   "/usr/bin/csh --rcfile ~/.cshrc"
  * But don't do that for Windows, it's common to have a space in the path.
+ * Returns NULL when out of memory.
  */
     char_u *
 get_isolated_shell_name(void)
@@ -2581,7 +2590,7 @@ get_isolated_shell_name(void)
 
 #ifdef MSWIN
     p = gettail(p_sh);
-    p = vim_strnsave(p, (int)(skiptowhite(p) - p));
+    p = vim_strnsave(p, skiptowhite(p) - p);
 #else
     p = skiptowhite(p_sh);
     if (*p == NUL)
@@ -2598,7 +2607,7 @@ get_isolated_shell_name(void)
 	for (p2 = p_sh; p2 < p; MB_PTR_ADV(p2))
 	    if (vim_ispathsep(*p2))
 		p1 = p2 + 1;
-	p = vim_strnsave(p1, (int)(p - p1));
+	p = vim_strnsave(p1, p - p1);
     }
 #endif
     return p;

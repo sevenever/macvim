@@ -916,9 +916,13 @@ gui_mch_add_menu(vimmenu_T *menu, int idx)
 # endif
 	{
 	    if (gui.menu_bg_pixel != INVALCOLOR)
+	    {
 		XtSetArg(arg[0], XmNbackground, gui.menu_bg_pixel); n++;
+	    }
 	    if (gui.menu_fg_pixel != INVALCOLOR)
+	    {
 		XtSetArg(arg[1], XmNforeground, gui.menu_fg_pixel); n++;
+	    }
 	    menu->submenu_id = XmCreatePopupMenu(textArea, "contextMenu",
 								      arg, n);
 	    menu->id = (Widget)0;
@@ -1239,7 +1243,9 @@ add_pixmap_args(vimmenu_T *menu, Arg *args, int n)
     else
     {
 	if (menu->xpm_fname != NULL)
+	{
 	    XtSetArg(args[n], XmNpixmapFile, menu->xpm_fname); n++;
+	}
 	XtSetArg(args[n], XmNpixmapData, menu->xpm); n++;
 	XtSetArg(args[n], XmNlabelLocation, XmBOTTOM); n++;
     }
@@ -1740,6 +1746,22 @@ gui_mch_set_scrollbar_pos(
     }
 }
 
+    int
+gui_mch_get_scrollbar_xpadding(void)
+{
+    // TODO: Calculate the padding for adjust scrollbar position when the
+    // Window is maximized.
+    return 0;
+}
+
+    int
+gui_mch_get_scrollbar_ypadding(void)
+{
+    // TODO: Calculate the padding for adjust scrollbar position when the
+    // Window is maximized.
+    return 0;
+}
+
     void
 gui_mch_enable_scrollbar(scrollbar_T *sb, int flag)
 {
@@ -1956,7 +1978,7 @@ do_mnemonic(Widget w, unsigned int keycode)
 
 		    XmProcessTraversal(w, XmTRAVERSE_CURRENT);
 
-		    vim_memset((char *) &keyEvent, 0, sizeof(XKeyPressedEvent));
+		    CLEAR_FIELD(keyEvent);
 		    keyEvent.type = KeyPress;
 		    keyEvent.serial = 1;
 		    keyEvent.send_event = True;
@@ -1974,7 +1996,11 @@ do_mnemonic(Widget w, unsigned int keycode)
  * Callback routine for dialog mnemonic processing.
  */
     static void
-mnemonic_event(Widget w, XtPointer call_data UNUSED, XKeyEvent *event)
+mnemonic_event(
+	Widget	    w,
+	XtPointer   call_data UNUSED,
+	XKeyEvent   *event,
+	Boolean	    *b UNUSED)
 {
     do_mnemonic(w, event->keycode);
 }
@@ -3503,7 +3529,7 @@ find_replace_callback(
 	char_u	*save_cpo = p_cpo;
 
 	// No need to be Vi compatible here.
-	p_cpo = (char_u *)"";
+	p_cpo = empty_option;
 	u_undo(1);
 	p_cpo = save_cpo;
 	gui_update_screen();
@@ -3543,7 +3569,8 @@ find_replace_callback(
 find_replace_keypress(
     Widget		w UNUSED,
     SharedFindReplace	*frdp,
-    XKeyEvent		*event)
+    XKeyEvent		*event,
+    Boolean		*b UNUSED)
 {
     KeySym keysym;
 

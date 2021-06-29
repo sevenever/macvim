@@ -49,9 +49,6 @@ extern int _stricoll(char *a, char *b);
 # ifdef VMS
 #  include "os_vms.pro"
 # endif
-# ifdef __BEOS__
-#  include "os_beos.pro"
-# endif
 # ifdef __QNX__
 #  include "os_qnx.pro"
 # endif
@@ -93,19 +90,24 @@ extern int _stricoll(char *a, char *b);
 # include "fileio.pro"
 # include "filepath.pro"
 # include "findfile.pro"
+# include "float.pro"
 # include "fold.pro"
 # include "getchar.pro"
+# include "gui_xim.pro"
 # include "hardcopy.pro"
 # include "hashtab.pro"
+# include "help.pro"
 # include "highlight.pro"
 # include "indent.pro"
 # include "insexpand.pro"
 # include "json.pro"
 # include "list.pro"
+# include "locale.pro"
 # include "blob.pro"
 # include "main.pro"
 # include "map.pro"
 # include "mark.pro"
+# include "match.pro"
 # include "memfile.pro"
 # include "memline.pro"
 # ifdef FEAT_MENU
@@ -223,16 +225,20 @@ void mbyte_im_set_active(int active_arg);
 #  include "textprop.pro"
 # endif
 # include "testing.pro"
+# include "textobject.pro"
+# include "textformat.pro"
 # include "time.pro"
+# include "typval.pro"
 # include "ui.pro"
 # include "undo.pro"
 # include "usercmd.pro"
 # include "userfunc.pro"
 # include "version.pro"
+# include "vim9script.pro"
 # ifdef FEAT_EVAL
 #  include "vim9compile.pro"
 #  include "vim9execute.pro"
-#  include "vim9script.pro"
+#  include "vim9type.pro"
 # endif
 # include "window.pro"
 
@@ -273,6 +279,7 @@ void mbyte_im_set_active(int active_arg);
 #  include "netbeans.pro"
 # endif
 # ifdef FEAT_JOB_CHANNEL
+#  include "job.pro"
 #  include "channel.pro"
 
 // Not generated automatically, to add extra attribute.
@@ -317,9 +324,6 @@ extern char *vim_SelFile(Widget toplevel, char *prompt, char *init_path, int (*s
 #  endif
 #  ifdef FEAT_GUI_HAIKU
 #   include "gui_haiku.pro"
-#  endif
-#  ifdef FEAT_GUI_MAC
-#   include "gui_mac.pro"
 #  endif
 #  ifdef FEAT_GUI_MACVIM
 #   include "gui_macvim.pro"

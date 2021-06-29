@@ -46,12 +46,6 @@
 
 static unsigned MMServerMax = 1000;
 
-#ifdef FEAT_BEVAL
-// Seconds to delay balloon evaluation after mouse event (subtracted from
-// p_bdlay so that this effectively becomes the smallest possible delay).
-NSTimeInterval MMBalloonEvalInternalDelay = 0.1;
-#endif
-
 // TODO: Move to separate file.
 static int eventModifierFlagsToVimModMask(int modifierFlags);
 static int eventModifierFlagsToVimMouseModMask(int modifierFlags);
@@ -62,10 +56,10 @@ vimmenu_T *menu_for_descriptor(NSArray *desc);
 
 static id evalExprCocoa(NSString * expr, NSString ** errstr);
 
-extern void im_preedit_start_macvim();
-extern void im_preedit_end_macvim();
-extern void im_preedit_abandon_macvim();
-extern void im_preedit_changed_macvim(char *preedit_string, int cursor_index);
+void im_preedit_start_macvim();
+void im_preedit_end_macvim();
+void im_preedit_abandon_macvim();
+void im_preedit_changed_macvim(char *preedit_string, int cursor_index);
 
 enum {
     MMBlinkStateNone = 0,
@@ -635,7 +629,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
         ;   // do nothing
 }
 
-- (void)flushQueue:(BOOL)force
+- (void)flushQueue:(BOOL UNUSED)force
 {
     // TODO: "force" is currently unused. When flushDisabled is set, it will
     // always disable flushing. Consider fixing it so that force will actually
@@ -729,8 +723,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
 
     // The above calls may have placed messages on the input queue so process
     // it now.  This call may enter a blocking loop.
-    if ([inputQueue count] > 0)
-        [self processInputQueue];
+    [self processInputQueue];
 
     return inputReceived;
 }
@@ -1234,6 +1227,14 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
     [data appendBytes:&radius length:sizeof(int)];
 
     [self queueMessage:SetBlurRadiusMsgID data:data];
+}
+
+- (void)setBackground:(int)dark
+{
+    NSMutableData *data = [NSMutableData data];
+    [data appendBytes:&dark length:sizeof(int)];
+
+    [self queueMessage:SetBackgroundOptionMsgID data:data];
 }
 
 - (void)updateModifiedFlag
@@ -1757,10 +1758,10 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
     // the shell (think ":grep" with thousands of matches).
 
     ++numWholeLineChanges;
-    if (numWholeLineChanges == gui.num_rows) {
+    if (numWholeLineChanges == (unsigned)gui.num_rows) {
         // Remember the offset to prune up to.
         offsetForDrawDataPrune = [drawData length];
-    } else if (numWholeLineChanges == 2*gui.num_rows) {
+    } else if (numWholeLineChanges == (unsigned)2*gui.num_rows) {
         // Delete all the unnecessary draw commands.
         NSMutableData *d = [[NSMutableData alloc]
                     initWithBytes:[drawData bytes] + offsetForDrawDataPrune
@@ -1912,7 +1913,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
                                                object:nil];
             [self performSelector:@selector(bevalCallback:)
                        withObject:nil
-                       afterDelay:MMBalloonEvalInternalDelay];
+                       afterDelay:p_bdlay/1000.0];
         }
 #endif
     } else if (MouseDownMsgID == msgid) {
@@ -1971,7 +1972,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
                                                object:nil];
             [self performSelector:@selector(bevalCallback:)
                        withObject:nil
-                       afterDelay:MMBalloonEvalInternalDelay];
+                       afterDelay:p_bdlay/1000.0];
         }
 #endif
     } else if (AddInputMsgID == msgid) {
@@ -2192,7 +2193,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
         vim_free(conv_str);
 }
 
-- (BOOL)handleSpecialKey:(NSString *)key
+- (BOOL)handleSpecialKey:(NSString * UNUSED)key
                  keyCode:(unsigned)code
                modifiers:(int)mods
 {
@@ -2319,7 +2320,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
         [outputQueue addObject:[NSData data]];
 }
 
-- (void)connectionDidDie:(NSNotification *)notification
+- (void)connectionDidDie:(NSNotification * UNUSED)notification
 {
     // If the main connection to MacVim is lost this means that either MacVim
     // has crashed or this process did not receive its termination message
@@ -2332,7 +2333,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
     getout_preserve_modified(1);
 }
 
-- (void)blinkTimerFired:(NSTimer *)timer
+- (void)blinkTimerFired:(NSTimer * UNUSED)timer
 {
     NSTimeInterval timeInterval = 0;
 
@@ -2625,7 +2626,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
 #endif // FEAT_ODB_EDITOR
 }
 
-- (void)handleXcodeMod:(NSData *)data
+- (void)handleXcodeMod:(NSData * UNUSED)data
 {
 #if 0
     const void *bytes = [data bytes];
@@ -2804,7 +2805,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
                     }
 
                     // Convert ":drop ..." to ":$tab drop ..."
-                    cmdmod.tab = numTabs + 1;
+                    cmdmod.cmod_tab = numTabs + 1;
                 }
 
                 if (splitInNewTab) {
@@ -2835,7 +2836,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
                     vim_memset(&cmdmod, 0, sizeof(cmdmod));
                     if (WIN_VER == layout) {
                         // Convert :sall to :vert sall
-                        cmdmod.split |= WSP_VERT;
+                        cmdmod.cmod_split |= WSP_VERT;
                     }
 
                     char_u sallArg[] = "";
@@ -2908,7 +2909,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
                         FOR_ALL_TABPAGES(tp) {
                             numTabs += 1;
                         }
-                        cmdmod.tab = numTabs + 1;
+                        cmdmod.cmod_tab = numTabs + 1;
                     }
                 } else {
                     // (The :drop command will split if there is a modified
@@ -3066,7 +3067,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
             ea.cmdidx = CMD_sbuffer;
             ea.cmd = sbufferCmd;
 
-            cmdmod.split |= WSP_VERT;
+            cmdmod.cmod_split |= WSP_VERT;
         } else if (WIN_TABS == layout) {
             // :tab sb <filename>
             ea.cmdidx = CMD_sbuffer;
@@ -3077,7 +3078,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
             FOR_ALL_TABPAGES(tp) {
                 numTabs += 1;
             }
-            cmdmod.tab = numTabs + 1;
+            cmdmod.cmod_tab = numTabs + 1;
         } else {
             // :b <filename>
             ea.cmdidx = CMD_buffer;
@@ -3341,7 +3342,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
 }
 
 #ifdef FEAT_BEVAL
-- (void)bevalCallback:(id)sender
+- (void)bevalCallback:(id UNUSED)sender
 {
     if (!(p_beval && balloonEval))
         return;
@@ -3352,20 +3353,20 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
         // variable.  (The reason we need to know is due to how the Cocoa tool
         // tips work: if there is no tool tip we must set it to nil explicitly
         // or it might never go away.)
-        [self setLastToolTip:nil];
-
         (*balloonEval->msgCB)(balloonEval, 0);
 
         [self queueMessage:SetTooltipMsgID properties:
             [NSDictionary dictionaryWithObject:(lastToolTip ? lastToolTip : @"")
                                         forKey:@"toolTip"]];
         [self flushQueue:YES];
+
+        [self setLastToolTip:nil];
     }
 }
 #endif
 
 #ifdef MESSAGE_QUEUE
-- (void)checkForProcessEvents:(NSTimer *)timer
+- (void)checkForProcessEvents:(NSTimer * UNUSED)timer
 {
 # ifdef FEAT_TIMERS
     did_add_timer = FALSE;
@@ -3456,7 +3457,7 @@ extern GuiFont gui_mch_retain_font(GuiFont font);
 
     while ((conn = [e nextObject])) {
         // HACK! Assume connection uses mach ports.
-        if (port == [(NSMachPort*)[conn sendPort] machPort])
+        if ((uint32_t)port == [(NSMachPort*)[conn sendPort] machPort])
             return conn;
     }
 

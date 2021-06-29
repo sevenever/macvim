@@ -447,6 +447,8 @@ flush_buffers(flush_buffers_T flush_typeahead)
     typebuf.tb_silent = 0;
     cmd_silent = FALSE;
     typebuf.tb_no_abbr_cnt = 0;
+    if (++typebuf.tb_change_cnt == 0)
+	typebuf.tb_change_cnt = 1;
 }
 
 /*
@@ -682,6 +684,46 @@ stuffcharReadbuff(int c)
 stuffnumReadbuff(long n)
 {
     add_num_buff(&readbuf1, n);
+}
+
+/*
+ * Stuff a string into the typeahead buffer, such that edit() will insert it
+ * literally ("literally" TRUE) or interpret is as typed characters.
+ */
+    void
+stuffescaped(char_u *arg, int literally)
+{
+    int		c;
+    char_u	*start;
+
+    while (*arg != NUL)
+    {
+	// Stuff a sequence of normal ASCII characters, that's fast.  Also
+	// stuff K_SPECIAL to get the effect of a special key when "literally"
+	// is TRUE.
+	start = arg;
+	while ((*arg >= ' '
+#ifndef EBCDIC
+		    && *arg < DEL // EBCDIC: chars above space are normal
+#endif
+		    )
+		|| (*arg == K_SPECIAL && !literally))
+	    ++arg;
+	if (arg > start)
+	    stuffReadbuffLen(start, (long)(arg - start));
+
+	// stuff a single special character
+	if (*arg != NUL)
+	{
+	    if (has_mbyte)
+		c = mb_cptr2char_adv(&arg);
+	    else
+		c = *arg++;
+	    if (literally && ((c < ' ' && c != TAB) || c == DEL))
+		stuffcharReadbuff(Ctrl_V);
+	    stuffcharReadbuff(c);
+	}
+    }
 }
 
 /*
@@ -1061,18 +1103,29 @@ ins_typebuf(
  * the char.
  */
     void
-ins_char_typebuf(int c)
+ins_char_typebuf(int c, int modifier)
 {
-    char_u	buf[MB_MAXBYTES + 1];
-    if (IS_SPECIAL(c))
+    char_u	buf[MB_MAXBYTES + 4];
+    int		idx = 0;
+
+    if (modifier != 0)
     {
 	buf[0] = K_SPECIAL;
-	buf[1] = K_SECOND(c);
-	buf[2] = K_THIRD(c);
+	buf[1] = KS_MODIFIER;
+	buf[2] = modifier;
 	buf[3] = NUL;
+	idx = 3;
+    }
+    if (IS_SPECIAL(c))
+    {
+	buf[idx] = K_SPECIAL;
+	buf[idx + 1] = K_SECOND(c);
+	buf[idx + 2] = K_THIRD(c);
+	buf[idx + 3] = NUL;
+	idx += 3;
     }
     else
-	buf[(*mb_char2bytes)(c, buf)] = NUL;
+	buf[(*mb_char2bytes)(c, buf + idx) + idx] = NUL;
     (void)ins_typebuf(buf, KeyNoremap, 0, !KeyTyped, cmd_silent);
 }
 
@@ -1361,9 +1414,10 @@ save_typeahead(tasave_T *tp)
 /*
  * Restore the typeahead to what it was before calling save_typeahead().
  * The allocated memory is freed, can only be called once!
+ * When "overwrite" is FALSE input typed later is kept.
  */
     void
-restore_typeahead(tasave_T *tp)
+restore_typeahead(tasave_T *tp, int overwrite UNUSED)
 {
     if (tp->typebuf_valid)
     {
@@ -1379,7 +1433,7 @@ restore_typeahead(tasave_T *tp)
     free_buff(&readbuf2);
     readbuf2 = tp->save_readbuf2;
 # ifdef USE_INPUT_BUF
-    set_input_buf(tp->save_inputbuf);
+    set_input_buf(tp->save_inputbuf, overwrite);
 # endif
 }
 
@@ -1393,7 +1447,7 @@ openscript(
 {
     if (curscript + 1 == NSCRIPT)
     {
-	emsg(_(e_nesting));
+	emsg(_(e_scripts_nested_too_deep));
 	return;
     }
 
@@ -1450,7 +1504,7 @@ openscript(
 	{
 	    update_topline_cursor();	// update cursor position and topline
 	    normal_cmd(&oa, FALSE);	// execute one command
-	    vpeekc();			// check for end of file
+	    (void)vpeekc();		// check for end of file
 	}
 	while (scriptin[oldcurscript] != NULL);
 
@@ -1531,33 +1585,43 @@ updatescript(int c)
 }
 
 /*
- * Convert "c" plus "mod_mask" to merge the effect of modifyOtherKeys into the
+ * Convert "c" plus "modifiers" to merge the effect of modifyOtherKeys into the
  * character.
  */
     int
-merge_modifyOtherKeys(int c_arg)
+merge_modifyOtherKeys(int c_arg, int *modifiers)
 {
     int c = c_arg;
 
-    if (mod_mask & MOD_MASK_CTRL)
+    if (*modifiers & MOD_MASK_CTRL)
     {
 	if ((c >= '`' && c <= 0x7f) || (c >= '@' && c <= '_'))
-	{
 	    c &= 0x1f;
-	    mod_mask &= ~MOD_MASK_CTRL;
-	}
 	else if (c == '6')
-	{
 	    // CTRL-6 is equivalent to CTRL-^
 	    c = 0x1e;
-	    mod_mask &= ~MOD_MASK_CTRL;
-	}
+#ifdef FEAT_GUI_GTK
+	// These mappings look arbitrary at the first glance, but in fact
+	// resemble quite exactly the behaviour of the GTK+ 1.2 GUI on my
+	// machine.  The only difference is BS vs. DEL for CTRL-8 (makes
+	// more sense and is consistent with usual terminal behaviour).
+	else if (c == '2')
+	    c = NUL;
+	else if (c >= '3' && c <= '7')
+	    c = c ^ 0x28;
+	else if (c == '8')
+	    c = BS;
+	else if (c == '?')
+	    c = DEL;
+#endif
+	if (c != c_arg)
+	    *modifiers &= ~MOD_MASK_CTRL;
     }
-    if ((mod_mask & (MOD_MASK_META | MOD_MASK_ALT))
+    if ((*modifiers & (MOD_MASK_META | MOD_MASK_ALT))
 	    && c >= 0 && c <= 127)
     {
 	c += 0x80;
-	mod_mask &= ~(MOD_MASK_META|MOD_MASK_ALT);
+	*modifiers &= ~(MOD_MASK_META|MOD_MASK_ALT);
     }
     return c;
 }
@@ -1600,8 +1664,11 @@ vgetc(void)
     }
     else
     {
-	mod_mask = 0x0;
+	mod_mask = 0;
+	vgetc_mod_mask = 0;
+	vgetc_char = 0;
 	last_recorded_len = 0;
+
 	for (;;)		// this is done twice if there are modifiers
 	{
 	    int did_inc = FALSE;
@@ -1794,10 +1861,11 @@ vgetc(void)
 		c = (*mb_ptr2char)(buf);
 	    }
 
-	    if (!no_reduce_keys)
-		// A modifier was not used for a mapping, apply it to ASCII
-		// keys.  Shift would already have been applied.
-		c = merge_modifyOtherKeys(c);
+	    if (vgetc_char == 0)
+	    {
+		vgetc_mod_mask = mod_mask;
+		vgetc_char = c;
+	    }
 
 	    break;
 	}
@@ -1821,7 +1889,9 @@ vgetc(void)
     }
 #endif
 #ifdef FEAT_PROP_POPUP
-    if (popup_do_filter(c))
+    // Only filter keys that do not come from ":normal".  Keys from feedkeys()
+    // are filtered.
+    if ((!ex_normal_busy || in_feedkeys) && popup_do_filter(c))
     {
 	if (c == Ctrl_C)
 	    got_int = FALSE;  // avoid looping
@@ -1863,7 +1933,9 @@ plain_vgetc(void)
 
     do
 	c = safe_vgetc();
-    while (c == K_IGNORE || c == K_VER_SCROLLBAR || c == K_HOR_SCROLLBAR);
+    while (c == K_IGNORE
+	    || c == K_VER_SCROLLBAR || c == K_HOR_SCROLLBAR
+	    || c == K_MOUSEMOVE);
 
     if (c == K_PS)
 	// Only handle the first pasted character.  Drop the rest, since we
@@ -1945,10 +2017,10 @@ char_avail(void)
 
 #if defined(FEAT_EVAL) || defined(PROTO)
 /*
- * "getchar()" function
+ * "getchar()" and "getcharstr()" functions
  */
-    void
-f_getchar(typval_T *argvars, typval_T *rettv)
+    static void
+getchar_common(typval_T *argvars, typval_T *rettv)
 {
     varnumber_T		n;
     int			error = FALSE;
@@ -1970,17 +2042,19 @@ f_getchar(typval_T *argvars, typval_T *rettv)
 	if (argvars[0].v_type == VAR_UNKNOWN)
 	    // getchar(): blocking wait.
 	    n = plain_vgetc();
-	else if (tv_get_number_chk(&argvars[0], &error) == 1)
+	else if (tv_get_bool_chk(&argvars[0], &error))
 	    // getchar(1): only check if char avail
 	    n = vpeekc_any();
 	else if (error || vpeekc_any() == NUL)
 	    // illegal argument or getchar(0) and no char avail: return zero
 	    n = 0;
 	else
-	    // getchar(0) and char avail: return char
-	    n = plain_vgetc();
+	    // getchar(0) and char avail() != NUL: get a character.
+	    // Note that vpeekc_any() returns K_SPECIAL for K_IGNORE.
+	    n = safe_vgetc();
 
-	if (n == K_IGNORE)
+	if (n == K_IGNORE || n == K_MOUSEMOVE
+		|| n == K_VER_SCROLLBAR || n == K_HOR_SCROLLBAR)
 	    continue;
 	break;
     }
@@ -2062,6 +2136,42 @@ f_getchar(typval_T *argvars, typval_T *rettv)
 }
 
 /*
+ * "getchar()" function
+ */
+    void
+f_getchar(typval_T *argvars, typval_T *rettv)
+{
+    getchar_common(argvars, rettv);
+}
+
+/*
+ * "getcharstr()" function
+ */
+    void
+f_getcharstr(typval_T *argvars, typval_T *rettv)
+{
+    getchar_common(argvars, rettv);
+
+    if (rettv->v_type == VAR_NUMBER)
+    {
+	char_u		temp[7];   // mbyte-char: 6, NUL: 1
+	varnumber_T	n = rettv->vval.v_number;
+	int		i = 0;
+
+	if (n != 0)
+	{
+	    if (has_mbyte)
+		i += (*mb_char2bytes)(n, temp + i);
+	    else
+		temp[i++] = n;
+	}
+	temp[i++] = NUL;
+	rettv->v_type = VAR_STRING;
+	rettv->vval.v_string = vim_strsave(temp);
+    }
+}
+
+/*
  * "getcharmod()" function
  */
     void
@@ -2092,7 +2202,8 @@ parse_queued_messages(void)
 
     // Do not handle messages while redrawing, because it may cause buffers to
     // change or be wiped while they are being redrawn.
-    if (updating_screen)
+    // Also bail out when parsing messages was explicitly disabled.
+    if (updating_screen || dont_parse_messages)
 	return;
 
     // If memory allocation fails during startup we'll exit but curbuf or
@@ -2115,7 +2226,7 @@ parse_queued_messages(void)
     for (i = 0; i < MAX_REPEAT_PARSE; ++i)
     {
 	// For Win32 mch_breakcheck() does not check for input, do it here.
-# if defined(MSWIN) && defined(FEAT_JOB_CHANNEL)
+# if (defined(MSWIN) || defined(__HAIKU__)) && defined(FEAT_JOB_CHANNEL)
 	channel_handle_events(FALSE);
 # endif
 
@@ -2152,6 +2263,13 @@ parse_queued_messages(void)
 	if (has_sound_callback_in_queue())
 	    invoke_sound_callback();
 # endif
+#ifdef SIGUSR1
+	if (got_sigusr1)
+	{
+	    apply_autocmds(EVENT_SIGUSR1, NULL, NULL, FALSE, curbuf);
+	    got_sigusr1 = FALSE;
+	}
+#endif
 	break;
     }
 
@@ -2165,7 +2283,7 @@ parse_queued_messages(void)
     // If the current window or buffer changed we need to bail out of the
     // waiting loop.  E.g. when a job exit callback closes the terminal window.
     if (curwin->w_id != old_curwin_id || curbuf->b_fnum != old_curbuf_fnum)
-	ins_char_typebuf(K_IGNORE);
+	ins_char_typebuf(K_IGNORE, 0);
 
     --entered;
 }
@@ -2195,6 +2313,66 @@ at_ctrl_x_key(void)
 	    && (p[2] & MOD_MASK_CTRL))
 	c = p[3] & 0x1f;
     return vim_is_ctrl_x_key(c);
+}
+
+/*
+ * Check if typebuf.tb_buf[] contains a modifier plus key that can be changed
+ * into just a key, apply that.
+ * Check from typebuf.tb_buf[typebuf.tb_off] to typebuf.tb_buf[typebuf.tb_off
+ * + "max_offset"].
+ * Return the length of the replaced bytes, zero if nothing changed.
+ */
+    static int
+check_simplify_modifier(int max_offset)
+{
+    int		offset;
+    char_u	*tp;
+
+    for (offset = 0; offset < max_offset; ++offset)
+    {
+	if (offset + 3 >= typebuf.tb_len)
+	    break;
+	tp = typebuf.tb_buf + typebuf.tb_off + offset;
+	if (tp[0] == K_SPECIAL && tp[1] == KS_MODIFIER)
+	{
+	    // A modifier was not used for a mapping, apply it to ASCII keys.
+	    // Shift would already have been applied.
+	    int modifier = tp[2];
+	    int	c = tp[3];
+	    int new_c = merge_modifyOtherKeys(c, &modifier);
+
+	    if (new_c != c)
+	    {
+		char_u	new_string[MB_MAXBYTES];
+		int	len;
+
+		if (offset == 0)
+		{
+		    // At the start: remember the character and mod_mask before
+		    // merging, in some cases, e.g. at the hit-return prompt,
+		    // they are put back in the typeahead buffer.
+		    vgetc_char = c;
+		    vgetc_mod_mask = tp[2];
+		}
+		len = mb_char2bytes(new_c, new_string);
+		if (modifier == 0)
+		{
+		    if (put_string_in_typebuf(offset, 4, new_string, len,
+							   NULL, 0, 0) == FAIL)
+		    return -1;
+		}
+		else
+		{
+		    tp[2] = modifier;
+		    if (put_string_in_typebuf(offset + 3, 1, new_string, len,
+							   NULL, 0, 0) == FAIL)
+		    return -1;
+		}
+		return len;
+	    }
+	}
+    }
+    return 0;
 }
 
 /*
@@ -2252,6 +2430,15 @@ handle_mapping(
 		    || ((compl_cont_status & CONT_LOCAL)
 			&& (tb_c1 == Ctrl_N || tb_c1 == Ctrl_P))))
     {
+#ifdef FEAT_GUI
+	if (gui.in_use && tb_c1 == CSI && typebuf.tb_len >= 2
+		&& typebuf.tb_buf[typebuf.tb_off + 1] == KS_MODIFIER)
+	{
+	    // The GUI code sends CSI KS_MODIFIER {flags}, but mappings expect
+	    // K_SPECIAL KS_MODIFIER {flags}.
+	    tb_c1 = K_SPECIAL;
+	}
+#endif
 #ifdef FEAT_LANGMAP
 	if (tb_c1 == K_SPECIAL)
 	    nolmaplen = 2;
@@ -2289,7 +2476,8 @@ handle_mapping(
 	    // Skip ":lmap" mappings if keys were mapped.
 	    if (mp->m_keys[0] == tb_c1
 		    && (mp->m_mode & local_State)
-		    && !(mp->m_simplified && seenModifyOtherKeys)
+		    && !(mp->m_simplified && seenModifyOtherKeys
+						     && typebuf.tb_maplen == 0)
 		    && ((mp->m_mode & LANGMAP) == 0 || typebuf.tb_maplen == 0))
 	    {
 #ifdef FEAT_LANGMAP
@@ -2310,7 +2498,7 @@ handle_mapping(
 		    if (mp->m_keys[mlen] != c2)
 #else
 		    if (mp->m_keys[mlen] !=
-			typebuf.tb_buf[typebuf.tb_off + mlen])
+					 typebuf.tb_buf[typebuf.tb_off + mlen])
 #endif
 			break;
 		}
@@ -2444,13 +2632,17 @@ handle_mapping(
 						    typebuf.tb_off] == RM_YES))
 		&& !*timedout)
 	{
-	    keylen = check_termcode(max_mlen + 1,
-					       NULL, 0, NULL);
+	    keylen = check_termcode(max_mlen + 1, NULL, 0, NULL);
 
-	    // If no termcode matched but 'pastetoggle' matched partially it's
-	    // like an incomplete key sequence.
+	    // If no termcode matched but 'pastetoggle' matched partially
+	    // it's like an incomplete key sequence.
 	    if (keylen == 0 && save_keylen == KEYLEN_PART_KEY)
 		keylen = KEYLEN_PART_KEY;
+
+	    // If no termcode matched, try to include the modifier into the
+	    // key.  This for when modifyOtherKeys is working.
+	    if (keylen == 0 && !no_reduce_keys)
+		keylen = check_simplify_modifier(max_mlen + 1);
 
 	    // When getting a partial match, but the last characters were not
 	    // typed, don't wait for a typed character to complete the
@@ -3030,6 +3222,7 @@ vgetorpeek(int advance)
 			timedout = TRUE;
 			continue;
 		    }
+
 		    // When 'insertmode' is set, ESC just beeps in Insert
 		    // mode.  Use CTRL-L to make edit() return.
 		    // For the command line only CTRL-C always breaks it.
@@ -3477,3 +3670,104 @@ input_available(void)
 	    );
 }
 #endif
+
+/*
+ * Function passed to do_cmdline() to get the command after a <Cmd> key from
+ * typeahead.
+ */
+    char_u *
+getcmdkeycmd(
+	int		promptc UNUSED,
+	void		*cookie UNUSED,
+	int		indent UNUSED,
+	getline_opt_T	do_concat UNUSED)
+{
+    garray_T	line_ga;
+    int		c1 = -1;
+    int		c2;
+    int		cmod = 0;
+    int		aborted = FALSE;
+
+    ga_init2(&line_ga, 1, 32);
+
+    // no mapping for these characters
+    no_mapping++;
+
+    got_int = FALSE;
+    while (c1 != NUL && !aborted)
+    {
+	if (ga_grow(&line_ga, 32) != OK)
+	{
+	    aborted = TRUE;
+	    break;
+	}
+
+	if (vgetorpeek(FALSE) == NUL)
+	{
+	    // incomplete <Cmd> is an error, because there is not much the user
+	    // could do in this state.
+	    emsg(_(e_cmd_mapping_must_end_with_cr));
+	    aborted = TRUE;
+	    break;
+	}
+
+	// Get one character at a time.
+	c1 = vgetorpeek(TRUE);
+
+	// Get two extra bytes for special keys
+	if (c1 == K_SPECIAL)
+	{
+	    c1 = vgetorpeek(TRUE);
+	    c2 = vgetorpeek(TRUE);
+	    if (c1 == KS_MODIFIER)
+	    {
+		cmod = c2;
+		continue;
+	    }
+	    c1 = TO_SPECIAL(c1, c2);
+	}
+	if (c1 == Ctrl_V)
+	{
+	    // CTRL-V is followed by octal, hex or other characters, reverses
+	    // what AppendToRedobuffLit() does.
+	    no_reduce_keys = TRUE;  //  don't merge modifyOtherKeys
+	    c1 = get_literal(TRUE);
+	    no_reduce_keys = FALSE;
+	}
+
+	if (got_int)
+	    aborted = TRUE;
+	else if (c1 == '\r' || c1 == '\n')
+	    c1 = NUL;  // end the line
+	else if (c1 == ESC)
+	    aborted = TRUE;
+	else if (c1 == K_COMMAND)
+	{
+	    // give a nicer error message for this special case
+	    emsg(_(e_cmd_mapping_must_end_with_cr_before_second_cmd));
+	    aborted = TRUE;
+	}
+	else if (IS_SPECIAL(c1))
+	{
+	    if (c1 == K_SNR)
+		ga_concat(&line_ga, (char_u *)"<SNR>");
+	    else
+	    {
+		semsg(e_cmd_maping_must_not_include_str_key,
+					       get_special_key_name(c1, cmod));
+		aborted = TRUE;
+	    }
+	}
+	else
+	    ga_append(&line_ga, (char)c1);
+
+	cmod = 0;
+    }
+
+    no_mapping--;
+
+    if (aborted)
+	ga_clear(&line_ga);
+
+    return (char_u *)line_ga.ga_data;
+}

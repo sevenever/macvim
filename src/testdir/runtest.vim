@@ -13,6 +13,9 @@
 " For csh:
 "     setenv TEST_FILTER Test_channel
 "
+" While working on a test you can make $TEST_NO_RETRY non-empty to not retry:
+"     export TEST_NO_RETRY=yes
+"
 " To ignore failure for tests that are known to fail in a certain environment,
 " set $TEST_MAY_FAIL to a comma separated list of function names.  E.g. for
 " sh/bash:
@@ -43,7 +46,14 @@
 
 
 " Without the +eval feature we can't run these tests, bail out.
-so small.vim
+silent! while 0
+  qa!
+silent! endwhile
+
+" In the GUI we can always change the screen size.
+if has('gui_running')
+  set columns=80 lines=25
+endif
 
 " Check that the screen size is at least 24 x 80 characters.
 if &lines < 24 || &columns < 80 
@@ -83,6 +93,9 @@ set encoding=utf-8
 let s:test_script_fname = expand('%')
 au! SwapExists * call HandleSwapExists()
 func HandleSwapExists()
+  if exists('g:ignoreSwapExists')
+    return
+  endif
   " Ignore finding a swap file for the test script (the user might be
   " editing it and do ":make test_name") and the output file.
   " Report finding another swap file and chose 'q' to avoid getting stuck.
@@ -100,10 +113,35 @@ set nomore
 " Output all messages in English.
 lang mess C
 
+" suppress menu translation
+if has('gui_running') && exists('did_install_default_menus')
+  source $VIMRUNTIME/delmenu.vim
+  set langmenu=none
+  source $VIMRUNTIME/menu.vim
+endif
+
 " Always use forward slashes.
 set shellslash
 
 let s:srcdir = expand('%:p:h:h')
+
+if has('win32')
+  " avoid prompt that is long or contains a line break
+  let $PROMPT = '$P$G'
+  " On MS-Windows t_md and t_me are Vim specific escape sequences.
+  let s:t_bold = "\x1b[1m"
+  let s:t_normal = "\x1b[m"
+else
+  let s:t_bold = &t_md
+  let s:t_normal = &t_me
+endif
+
+if has('mac')
+  " In MacOS, when starting a shell in a terminal, a bash deprecation warning
+  " message is displayed. This breaks the terminal test. Disable the warning
+  " message.
+  let $BASH_SILENCE_DEPRECATION_WARNING = 1
+endif
 
 " Prepare for calling test_garbagecollect_now().
 let v:testing = 1
@@ -124,7 +162,7 @@ function GetAllocId(name)
 endfunc
 
 func RunTheTest(test)
-  echo 'Executing ' . a:test
+  echoconsole 'Executing ' . a:test
   if has('reltime')
     let func_start = reltime()
   endif
@@ -158,11 +196,15 @@ func RunTheTest(test)
   if a:test =~ 'Test_nocatch_'
     " Function handles errors itself.  This avoids skipping commands after the
     " error.
+    let g:skipped_reason = ''
     exe 'call ' . a:test
+    if g:skipped_reason != ''
+      call add(s:messages, '    Skipped')
+      call add(s:skipped, 'SKIPPED ' . a:test . ': ' . g:skipped_reason)
+    endif
   else
     try
-      let s:test = a:test
-      au VimLeavePre * call EarlyExit(s:test)
+      au VimLeavePre * call EarlyExit(g:testfunc)
       exe 'call ' . a:test
       au! VimLeavePre
     catch /^\cskipped/
@@ -189,14 +231,20 @@ func RunTheTest(test)
   au!
   au SwapExists * call HandleSwapExists()
 
-  " Close any stray popup windows
+  " Check for and close any stray popup windows.
   if has('popupwin')
-    call popup_clear()
+    call assert_equal([], popup_list())
+    call popup_clear(1)
   endif
 
   " Close any extra tab pages and windows and make the current one not modified.
   while tabpagenr('$') > 1
+    let winid = win_getid()
     quit!
+    if winid == win_getid()
+      echoerr 'Could not quit window'
+      break
+    endif
   endwhile
 
   while 1
@@ -216,7 +264,15 @@ func RunTheTest(test)
 
   let message = 'Executed ' . a:test
   if has('reltime')
-    let message ..= ' in ' .. reltimestr(reltime(func_start)) .. ' seconds'
+    let message ..= repeat(' ', 50 - len(message))
+    let time = reltime(func_start)
+    if has('float') && reltimefloat(time) > 0.1
+      let message = s:t_bold .. message
+    endif
+    let message ..= ' in ' .. reltimestr(time) .. ' seconds'
+    if has('float') && reltimefloat(time) > 0.1
+      let message ..= s:t_normal
+    endif
   endif
   call add(s:messages, message)
   let s:done += 1
@@ -226,11 +282,11 @@ func AfterTheTest(func_name)
   if len(v:errors) > 0
     if match(s:may_fail_list, '^' .. a:func_name) >= 0
       let s:fail_expected += 1
-      call add(s:errors_expected, 'Found errors in ' . s:test . ':')
+      call add(s:errors_expected, 'Found errors in ' . g:testfunc . ':')
       call extend(s:errors_expected, v:errors)
     else
       let s:fail += 1
-      call add(s:errors, 'Found errors in ' . s:test . ':')
+      call add(s:errors, 'Found errors in ' . g:testfunc . ':')
       call extend(s:errors, v:errors)
     endif
     let v:errors = []
@@ -284,7 +340,9 @@ func FinishTesting()
     let message = 'Executed ' . s:done . (s:done > 1 ? ' tests' : ' test')
   endif
   if s:done > 0 && has('reltime')
+    let message = s:t_bold .. message .. repeat(' ', 40 - len(message))
     let message ..= ' in ' .. reltimestr(reltime(s:start_time)) .. ' seconds'
+    let message ..= s:t_normal
   endif
   echo message
   call add(s:messages, message)
@@ -341,7 +399,9 @@ endif
 
 " Names of flaky tests.
 let s:flaky_tests = [
+      \ 'Test_BufWrite_lockmarks()',
       \ 'Test_autocmd_SafeState()',
+      \ 'Test_bufunload_all()',
       \ 'Test_client_server()',
       \ 'Test_close_and_exit_cb()',
       \ 'Test_close_output_buffer()',
@@ -350,7 +410,6 @@ let s:flaky_tests = [
       \ 'Test_diff_screen()',
       \ 'Test_exit_callback_interval()',
       \ 'Test_map_timeout_with_timer_interrupt()',
-      \ 'Test_nb_basic()',
       \ 'Test_out_cb()',
       \ 'Test_pipe_through_sort_all()',
       \ 'Test_pipe_through_sort_some()',
@@ -396,31 +455,33 @@ endif
 
 let s:may_fail_list = []
 if $TEST_MAY_FAIL != ''
-  " Split the list at commas and add () to make it match s:test.
+  " Split the list at commas and add () to make it match g:testfunc.
   let s:may_fail_list = split($TEST_MAY_FAIL, ',')->map({i, v -> v .. '()'})
 endif
 
 " Execute the tests in alphabetical order.
-for s:test in sort(s:tests)
+for g:testfunc in sort(s:tests)
   " Silence, please!
   set belloff=all
   let prev_error = ''
   let total_errors = []
   let g:run_nr = 1
 
-  " A test can set test_is_flaky to retry running the test.
-  let test_is_flaky = 0
+  " A test can set g:test_is_flaky to retry running the test.
+  let g:test_is_flaky = 0
 
-  call RunTheTest(s:test)
+  call RunTheTest(g:testfunc)
 
   " Repeat a flaky test.  Give up when:
+  " - $TEST_NO_RETRY is not empty
   " - it fails again with the same message
   " - it fails five times (with a different message)
   if len(v:errors) > 0
-        \ && (index(s:flaky_tests, s:test) >= 0
-        \      || test_is_flaky)
+        \ && $TEST_NO_RETRY == ''
+        \ && (index(s:flaky_tests, g:testfunc) >= 0
+        \      || g:test_is_flaky)
     while 1
-      call add(s:messages, 'Found errors in ' . s:test . ':')
+      call add(s:messages, 'Found errors in ' . g:testfunc . ':')
       call extend(s:messages, v:errors)
 
       call add(total_errors, 'Run ' . g:run_nr . ':')
@@ -434,7 +495,7 @@ for s:test in sort(s:tests)
           " tests pending for now before a more proper fix is implemented.
           call extend(s:messages, [
                 \ 'Flaky test failed too often, giving up',
-                \ 'MacVim marked ' . s:test . ' as pending',
+                \ 'MacVim marked ' . g:testfunc . ' as pending',
                 \ ])
           let v:errors = []
         endif
@@ -452,7 +513,7 @@ for s:test in sort(s:tests)
       let v:errors = []
       let g:run_nr += 1
 
-      call RunTheTest(s:test)
+      call RunTheTest(g:testfunc)
 
       if len(v:errors) == 0
         " Test passed on rerun.
@@ -461,7 +522,7 @@ for s:test in sort(s:tests)
     endwhile
   endif
 
-  call AfterTheTest(s:test)
+  call AfterTheTest(g:testfunc)
 endfor
 
 call FinishTesting()

@@ -86,7 +86,7 @@ eval_client_expr_to_string(char_u *expr)
     // to be typed.  Do generate errors so that try/catch works.
     ++emsg_silent;
 
-    res = eval_to_string(expr, NULL, TRUE);
+    res = eval_to_string(expr, TRUE);
 
     debug_break_level = save_dbl;
     redir_off = save_ro;
@@ -478,6 +478,7 @@ cmdsrv_main(
 # ifdef FEAT_GUI_MSWIN
 		Shell_NotifyIcon(NIM_DELETE, &ni);
 # endif
+		vim_free(done);
 	    }
 	}
 	else if (STRICMP(argv[i], "--remote-expr") == 0)
@@ -600,7 +601,8 @@ build_drop_cmd(
     ga_concat(&ga, cdp);
 
     // Call inputsave() so that a prompt for an encryption key works.
-    ga_concat(&ga, (char_u *)"<CR>:if exists('*inputsave')|call inputsave()|endif|");
+    ga_concat(&ga, (char_u *)
+		       "<CR>:if exists('*inputsave')|call inputsave()|endif|");
     if (tabs)
 	ga_concat(&ga, (char_u *)"tab ");
     ga_concat(&ga, (char_u *)"drop");
@@ -625,7 +627,8 @@ build_drop_cmd(
 	ga_concat(&ga, p);
 	vim_free(p);
     }
-    ga_concat(&ga, (char_u *)"|if exists('*inputrestore')|call inputrestore()|endif<CR>");
+    ga_concat(&ga, (char_u *)
+		  "|if exists('*inputrestore')|call inputrestore()|endif<CR>");
 
     // The :drop commands goes to Insert mode when 'insertmode' is set, use
     // CTRL-\ CTRL-N again.

@@ -1050,7 +1050,6 @@ free_all_mem(void)
     if (entered_free_all_mem)
 	return;
     entered_free_all_mem = TRUE;
-
     // Don't want to trigger autocommands from here on.
     block_autocmds();
 
@@ -1068,6 +1067,10 @@ free_all_mem(void)
 
 # if defined(FEAT_BEVAL_TERM)
     ui_remove_balloon();
+# endif
+# ifdef FEAT_PROP_POPUP
+    if (curwin != NULL)
+	close_all_popups(TRUE);
 # endif
 
     // Clear user commands (before deleting buffers).
@@ -1127,7 +1130,7 @@ free_all_mem(void)
     free_signs();
 # endif
 # ifdef FEAT_EVAL
-    set_expr_line(NULL);
+    set_expr_line(NULL, NULL);
 # endif
 # ifdef FEAT_DIFF
     if (curtab != NULL)
@@ -1287,7 +1290,7 @@ vim_strsave(char_u *string)
  * shorter.
  */
     char_u *
-vim_strnsave(char_u *string, int len)
+vim_strnsave(char_u *string, size_t len)
 {
     char_u	*p;
 
@@ -1534,7 +1537,7 @@ vim_strsave_up(char_u *string)
  * This uses ASCII lower-to-upper case translation, language independent.
  */
     char_u *
-vim_strnsave_up(char_u *string, int len)
+vim_strnsave_up(char_u *string, size_t len)
 {
     char_u *p1;
 
@@ -1868,9 +1871,10 @@ vim_strnicmp(char *s1, char *s2, size_t len)
 #endif
 
 /*
- * Version of strchr() and strrchr() that handle unsigned char strings
- * with characters from 128 to 255 correctly.  It also doesn't return a
- * pointer to the NUL at the end of the string.
+ * Search for first occurrence of "c" in "string".
+ * Version of strchr() that handles unsigned char strings with characters from
+ * 128 to 255 correctly.  It also doesn't return a pointer to the NUL at the
+ * end of the string.
  */
     char_u  *
 vim_strchr(char_u *string, int c)
@@ -1945,6 +1949,9 @@ vim_strbyte(char_u *string, int c)
 
 /*
  * Search for last occurrence of "c" in "string".
+ * Version of strrchr() that handles unsigned char strings with characters from
+ * 128 to 255 correctly.  It also doesn't return a pointer to the NUL at the
+ * end of the string.
  * Return NULL if not found.
  * Does not handle multi-byte char for "c"!
  */
@@ -2018,9 +2025,45 @@ ga_clear_strings(garray_T *gap)
 {
     int		i;
 
-    for (i = 0; i < gap->ga_len; ++i)
-	vim_free(((char_u **)(gap->ga_data))[i]);
+    if (gap->ga_data != NULL)
+	for (i = 0; i < gap->ga_len; ++i)
+	    vim_free(((char_u **)(gap->ga_data))[i]);
     ga_clear(gap);
+}
+
+/*
+ * Copy a growing array that contains a list of strings.
+ */
+    int
+ga_copy_strings(garray_T *from, garray_T *to)
+{
+    int		i;
+
+    ga_init2(to, sizeof(char_u *), 1);
+    if (ga_grow(to, from->ga_len) == FAIL)
+	return FAIL;
+
+    for (i = 0; i < from->ga_len; ++i)
+    {
+	char_u *orig = ((char_u **)from->ga_data)[i];
+	char_u *copy;
+
+	if (orig == NULL)
+	    copy = NULL;
+	else
+	{
+	    copy = vim_strsave(orig);
+	    if (copy == NULL)
+	    {
+		to->ga_len = i;
+		ga_clear_strings(to);
+		return FAIL;
+	    }
+	}
+	((char_u **)to->ga_data)[i] = copy;
+    }
+    to->ga_len = from->ga_len;
+    return OK;
 }
 
 /*
@@ -2050,30 +2093,35 @@ ga_init2(garray_T *gap, int itemsize, int growsize)
     int
 ga_grow(garray_T *gap, int n)
 {
+    if (gap->ga_maxlen - gap->ga_len < n)
+	return ga_grow_inner(gap, n);
+    return OK;
+}
+
+    int
+ga_grow_inner(garray_T *gap, int n)
+{
     size_t	old_len;
     size_t	new_len;
     char_u	*pp;
 
-    if (gap->ga_maxlen - gap->ga_len < n)
-    {
-	if (n < gap->ga_growsize)
-	    n = gap->ga_growsize;
+    if (n < gap->ga_growsize)
+	n = gap->ga_growsize;
 
-	// A linear growth is very inefficient when the array grows big.  This
-	// is a compromise between allocating memory that won't be used and too
-	// many copy operations. A factor of 1.5 seems reasonable.
-	if (n < gap->ga_len / 2)
-	    n = gap->ga_len / 2;
+    // A linear growth is very inefficient when the array grows big.  This
+    // is a compromise between allocating memory that won't be used and too
+    // many copy operations. A factor of 1.5 seems reasonable.
+    if (n < gap->ga_len / 2)
+	n = gap->ga_len / 2;
 
-	new_len = gap->ga_itemsize * (gap->ga_len + n);
-	pp = vim_realloc(gap->ga_data, new_len);
-	if (pp == NULL)
-	    return FAIL;
-	old_len = gap->ga_itemsize * gap->ga_maxlen;
-	vim_memset(pp + old_len, 0, new_len - old_len);
-	gap->ga_maxlen = gap->ga_len + n;
-	gap->ga_data = pp;
-    }
+    new_len = gap->ga_itemsize * (gap->ga_len + n);
+    pp = vim_realloc(gap->ga_data, new_len);
+    if (pp == NULL)
+	return FAIL;
+    old_len = gap->ga_itemsize * gap->ga_maxlen;
+    vim_memset(pp + old_len, 0, new_len - old_len);
+    gap->ga_maxlen = gap->ga_len + n;
+    gap->ga_data = pp;
     return OK;
 }
 
@@ -2453,7 +2501,7 @@ static struct key_name_entry
     {K_URXVT_MOUSE,	(char_u *)"UrxvtMouse"},
 #endif
     {K_SGR_MOUSE,	(char_u *)"SgrMouse"},
-    {K_SGR_MOUSERELEASE, (char_u *)"SgrMouseRelelase"},
+    {K_SGR_MOUSERELEASE, (char_u *)"SgrMouseRelease"},
     {K_LEFTMOUSE,	(char_u *)"LeftMouse"},
     {K_LEFTMOUSE_NM,	(char_u *)"LeftMouseNM"},
     {K_LEFTDRAG,	(char_u *)"LeftDrag"},
@@ -2493,11 +2541,14 @@ static struct key_name_entry
     {K_FORCECLICK,	(char_u *)"ForceClick"},
 #endif
     {K_IGNORE,		(char_u *)"Ignore"},
+    {K_COMMAND,		(char_u *)"Cmd"},
+    {K_FOCUSGAINED,	(char_u *)"FocusGained"},
+    {K_FOCUSLOST,	(char_u *)"FocusLost"},
     {0,			NULL}
     // NOTE: When adding a long name update MAX_KEY_NAME_LEN.
 };
 
-#define KEY_NAMES_TABLE_LEN (sizeof(key_names_table) / sizeof(struct key_name_entry))
+#define KEY_NAMES_TABLE_LEN ARRAY_LENGTH(key_names_table)
 
 /*
  * Return the modifier mask bit (MOD_MASK_*) which corresponds to the given
@@ -2701,20 +2752,17 @@ get_special_key_name(int c, int modifiers)
 trans_special(
     char_u	**srcp,
     char_u	*dst,
-    int		keycode,    // prefer key code, e.g. K_DEL instead of DEL
-    int		in_string,  // TRUE when inside a double quoted string
-    int		simplify,	// simplify <C-H> and <A-x>
-    int		*did_simplify)  // found <C-H> or <A-x>
+    int		flags,		// FSK_ values
+    int		*did_simplify)  // FSK_SIMPLIFY and found <C-H> or <A-x>
 {
     int		modifiers = 0;
     int		key;
 
-    key = find_special_key(srcp, &modifiers, keycode, FALSE, in_string,
-						       simplify, did_simplify);
+    key = find_special_key(srcp, &modifiers, flags, did_simplify);
     if (key == 0)
 	return 0;
 
-    return special_to_buf(key, modifiers, keycode, dst);
+    return special_to_buf(key, modifiers, flags & FSK_KEYCODE, dst);
 }
 
 /*
@@ -2762,16 +2810,14 @@ special_to_buf(int key, int modifiers, int keycode, char_u *dst)
 find_special_key(
     char_u	**srcp,
     int		*modp,
-    int		keycode,	// prefer key code, e.g. K_DEL instead of DEL
-    int		keep_x_key,	// don't translate xHome to Home key
-    int		in_string,	// TRUE in string, double quote is escaped
-    int		simplify,	// simplify <C-H> and <A-x>
+    int		flags,		// FSK_ values
     int		*did_simplify)  // found <C-H> or <A-x>
 {
     char_u	*last_dash;
     char_u	*end_of_name;
     char_u	*src;
     char_u	*bp;
+    int		in_string = flags & FSK_IN_STRING;
     int		modifiers;
     int		bit;
     int		key;
@@ -2781,10 +2827,12 @@ find_special_key(
     src = *srcp;
     if (src[0] != '<')
 	return 0;
+    if (src[1] == '*')	    // <*xxx>: do not simplify
+	++src;
 
     // Find end of modifier list
     last_dash = src;
-    for (bp = src + 1; *bp == '-' || vim_isIDc(*bp); bp++)
+    for (bp = src + 1; *bp == '-' || vim_isNormalIDc(*bp); bp++)
     {
 	if (*bp == '-')
 	{
@@ -2801,7 +2849,7 @@ find_special_key(
 		if (!(in_string && bp[1] == '"') && bp[l + 1] == '>')
 		    bp += l;
 		else if (in_string && bp[1] == '\\' && bp[2] == '"'
-							       && bp[3] == '>')
+							   && bp[3] == '>')
 		    bp += 2;
 	    }
 	}
@@ -2871,7 +2919,7 @@ find_special_key(
 		else
 		{
 		    key = get_special_key_code(last_dash + off);
-		    if (!keep_x_key)
+		    if (!(flags & FSK_KEEP_X_KEY))
 			key = handle_x_keys(key);
 		}
 	    }
@@ -2888,7 +2936,7 @@ find_special_key(
 		 */
 		key = simplify_key(key, &modifiers);
 
-		if (!keycode)
+		if (!(flags & FSK_KEYCODE))
 		{
 		    // don't want keycode, use single byte code
 		    if (key == K_BS)
@@ -2900,7 +2948,7 @@ find_special_key(
 		// Normal Key with modifier: Try to make a single byte code.
 		if (!IS_SPECIAL(key))
 		    key = extract_modifiers(key, &modifiers,
-						       simplify, did_simplify);
+					   flags & FSK_SIMPLIFY, did_simplify);
 
 		*modp = modifiers;
 		*srcp = end_of_name;
@@ -2909,6 +2957,59 @@ find_special_key(
 	}
     }
     return 0;
+}
+
+
+/*
+ * Some keys are used with Ctrl without Shift and are still expected to be
+ * mapped as if Shift was pressed:
+ * CTRL-2 is CTRL-@
+ * CTRL-6 is CTRL-^
+ * CTRL-- is CTRL-_
+ * Also, <C-H> and <C-h> mean the same thing, always use "H".
+ * Returns the possibly adjusted key.
+ */
+    int
+may_adjust_key_for_ctrl(int modifiers, int key)
+{
+    if (modifiers & MOD_MASK_CTRL)
+    {
+	if (ASCII_ISALPHA(key))
+	    return TOUPPER_ASC(key);
+	if (key == '2')
+	    return '@';
+	if (key == '6')
+	    return '^';
+	if (key == '-')
+	    return '_';
+    }
+    return key;
+}
+
+/*
+ * Some keys already have Shift included, pass them as normal keys.
+ * When Ctrl is also used <C-H> and <C-S-H> are different, but <C-S-{> should
+ * be <C-{>.  Same for <C-S-}> and <C-S-|>.
+ * Also for <A-S-a> and <M-S-a>.
+ * This includes all printable ASCII characters except numbers and a-z.
+ */
+    int
+may_remove_shift_modifier(int modifiers, int key)
+{
+    if ((modifiers == MOD_MASK_SHIFT
+		|| modifiers == (MOD_MASK_SHIFT | MOD_MASK_ALT)
+		|| modifiers == (MOD_MASK_SHIFT | MOD_MASK_META))
+	    && ((key >= '!' && key <= '/')
+		|| (key >= ':' && key <= 'Z')
+		|| (key >= '[' && key <= '`')
+		|| (key >= '{' && key <= '~')))
+	return modifiers & ~MOD_MASK_SHIFT;
+
+    if (modifiers == (MOD_MASK_SHIFT | MOD_MASK_CTRL)
+		&& (key == '{' || key == '}' || key == '|'))
+	return modifiers & ~MOD_MASK_SHIFT;
+
+    return modifiers;
 }
 
 /*
@@ -2930,9 +3031,11 @@ extract_modifiers(int key, int *modp, int simplify, int *did_simplify)
     if ((modifiers & MOD_MASK_SHIFT) && ASCII_ISALPHA(key))
     {
 	key = TOUPPER_ASC(key);
-	// With <C-S-a> and <A-S-a> we keep the shift modifier.
-	// With <S-a> and <S-A> we don't keep the shift modifier.
-	if (simplify || modifiers == MOD_MASK_SHIFT)
+	// With <C-S-a> we keep the shift modifier.
+	// With <S-a>, <A-S-a> and <S-A> we don't keep the shift modifier.
+	if (simplify || modifiers == MOD_MASK_SHIFT
+		|| modifiers == (MOD_MASK_SHIFT | MOD_MASK_ALT)
+		|| modifiers == (MOD_MASK_SHIFT | MOD_MASK_META))
 	    modifiers &= ~MOD_MASK_SHIFT;
     }
 
@@ -3024,10 +3127,10 @@ get_special_key_code(char_u *name)
 	for (i = 0; key_names_table[i].name != NULL; i++)
 	{
 	    table_name = key_names_table[i].name;
-	    for (j = 0; vim_isIDc(name[j]) && table_name[j] != NUL; j++)
+	    for (j = 0; vim_isNormalIDc(name[j]) && table_name[j] != NUL; j++)
 		if (TOLOWER_ASC(table_name[j]) != TOLOWER_ASC(name[j]))
 		    break;
-	    if (!vim_isIDc(name[j]) && table_name[j] == NUL)
+	    if (!vim_isNormalIDc(name[j]) && table_name[j] == NUL)
 		return key_names_table[i].key;
 	}
     return 0;
@@ -3151,8 +3254,7 @@ call_shell(char_u *cmd, int opt)
     if (p_verbose > 3)
     {
 	verbose_enter();
-	smsg(_("Calling shell to execute: \"%s\""),
-						    cmd == NULL ? p_sh : cmd);
+	smsg(_("Calling shell to execute: \"%s\""), cmd == NULL ? p_sh : cmd);
 	out_char('\n');
 	cursor_on();
 	verbose_leave();
@@ -3287,7 +3389,7 @@ same_directory(char_u *f1, char_u *f2)
 }
 
 #if defined(FEAT_SESSION) || defined(FEAT_AUTOCHDIR) \
-	|| defined(MSWIN) || defined(FEAT_GUI_MAC) || defined(FEAT_GUI_GTK) \
+	|| defined(MSWIN) || defined(FEAT_GUI_GTK) \
 	|| defined(FEAT_NETBEANS_INTG) \
 	|| defined(PROTO)
 /*
@@ -4363,7 +4465,7 @@ build_argv_from_list(list_T *l, char ***argv, int *argc)
 	    int i;
 
 	    for (i = 0; i < *argc; ++i)
-		vim_free((*argv)[i]);
+		VIM_CLEAR((*argv)[i]);
 	    return FAIL;
 	}
 	(*argv)[*argc] = (char *)vim_strsave(s);

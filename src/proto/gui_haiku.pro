@@ -6,7 +6,7 @@ int gui_mch_open(void);
 void gui_mch_exit(int vim_exitcode);
 int gui_mch_init_check(void);
 void gui_mch_flush(void);
-
+int gui_mch_is_blink_off(void);
 void gui_mch_new_colors(void);
 void gui_mch_set_bg_color(guicolor_T color);
 void gui_mch_set_fg_color(guicolor_T color);
@@ -33,6 +33,8 @@ void gui_mch_enable_scrollbar(scrollbar_T *sb, int flag);
 void gui_mch_set_scrollbar_thumb(scrollbar_T *sb, int val, int size, int max);
 
 void gui_mch_set_scrollbar_pos(scrollbar_T *sb, int x, int y, int w, int h);
+int gui_mch_get_scrollbar_xpadding(void);
+int gui_mch_get_scrollbar_ypadding(void);
 void gui_mch_create_scrollbar(scrollbar_T *sb, int orient);
 void gui_mch_destroy_scrollbar(scrollbar_T *sb);
 
